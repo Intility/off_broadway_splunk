@@ -41,8 +41,9 @@ defmodule OffBroadwaySplunk.MixProject do
   defp deps do
     [
       {:broadway, "~> 1.0"},
-      {:mox, "~> 1.0", only: :test},
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
+      {:junit_formatter, "~> 3.3", only: :test},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 end
