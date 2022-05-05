@@ -44,10 +44,6 @@ defmodule OffBroadwaySplunk.JobMonitor do
   def start_link(%{sid: sid} = params),
     do: GenServer.start_link(__MODULE__, params, name: :"#{__MODULE__}-#{sid}")
 
-  def stop(pid) do
-    GenServer.stop(pid, :shutdown)
-  end
-
   @impl true
   def init(%{sid: sid}) do
     Process.send_after(self(), :tick, 0)

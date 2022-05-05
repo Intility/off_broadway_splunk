@@ -13,11 +13,11 @@ defmodule OffBroadwaySplunk.ApiClientTest do
       %{method: :get, url: "https://splunk.example.com/services/search/jobs"} ->
         %Tesla.Env{status: 200, body: "list all search jobs"}
 
-      %{method: :get, url: "https://splunk.example.com/services/search/jobs/A-SID"} ->
-        %Tesla.Env{status: 200, body: "a search job by A-SID"}
+      %{method: :get, url: "https://splunk.example.com/services/search/jobs/SID"} ->
+        %Tesla.Env{status: 200, body: "a search job by SID"}
 
-      %{method: :get, url: "https://splunk.example.com/services/search/jobs/A-SID/results"} ->
-        %Tesla.Env{status: 200, body: "A-SID events"}
+      %{method: :get, url: "https://splunk.example.com/services/search/jobs/SID/results"} ->
+        %Tesla.Env{status: 200, body: "SID events"}
     end)
 
     :ok
@@ -37,12 +37,12 @@ defmodule OffBroadwaySplunk.ApiClientTest do
   end
 
   test "fetching search jobs by SID" do
-    assert {:ok, %Tesla.Env{status: 200, body: "a search by by A-SID"}} =
-             ApiClient.client() |> ApiClient.search_jobs("A-SID")
+    assert {:ok, %Tesla.Env{status: 200, body: "a search by by SID"}} =
+             ApiClient.client() |> ApiClient.search_jobs("SID")
   end
 
   test "fetching all events by SID" do
-    assert {:ok, %Tesla.Env{status: 200, body: "A-SID events"}} =
-             ApiClient.client() |> ApiClient.search_results("A-SID")
+    assert {:ok, %Tesla.Env{status: 200, body: "SID events"}} =
+             ApiClient.client() |> ApiClient.search_results("SID")
   end
 end
