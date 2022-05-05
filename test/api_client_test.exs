@@ -37,7 +37,7 @@ defmodule OffBroadwaySplunk.ApiClientTest do
   end
 
   test "fetching search jobs by SID" do
-    assert {:ok, %Tesla.Env{status: 200, body: "a search by by SID"}} =
+    assert {:ok, %Tesla.Env{status: 200, body: "a search job by SID"}} =
              ApiClient.client() |> ApiClient.search_jobs("SID")
   end
 

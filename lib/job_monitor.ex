@@ -46,9 +46,14 @@ defmodule OffBroadwaySplunk.JobMonitor do
 
   @impl true
   def init(%{sid: sid}) do
+    Logger.info("Starting new job monitor for #{sid}")
     Process.send_after(self(), :tick, 0)
+
     {:ok, %State{sid: sid, is_done: false}}
   end
+
+  @impl true
+  def handle_call(:get_state, _from, state), do: {:reply, state, state}
 
   @impl true
   def handle_info(:tick, %State{is_zombie: true} = state) do
@@ -82,8 +87,8 @@ defmodule OffBroadwaySplunk.JobMonitor do
     end
   end
 
-  def handle_info(:tick, %State{sid: _sid, is_done: true} = state) do
-    IO.puts("Job is ready for processing!")
+  def handle_info(:tick, %State{sid: sid, is_done: true} = state) do
+    Logger.info("Splunk is done processing job #{sid} - Ready to consume events")
     {:noreply, state}
   end
 
