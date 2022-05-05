@@ -7,6 +7,8 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
   @sid_complete "SID-1"
   @sid_incomplete "SID-2"
   @sid_zombie "SID-3"
+  @sid_not_found "SID-4"
+  @sid_bad_request "SID-5"
 
   describe "OffBroadwaySplunk.JobMonitor" do
     setup do
@@ -19,6 +21,8 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
       {:ok, pid1} = GenServer.start_link(JobMonitor, %{sid: @sid_complete})
       {:ok, pid2} = GenServer.start_link(JobMonitor, %{sid: @sid_incomplete})
       {:ok, pid3} = GenServer.start_link(JobMonitor, %{sid: @sid_zombie})
+      {:ok, pid4} = GenServer.start_link(JobMonitor, %{sid: @sid_not_found})
+      {:ok, pid5} = GenServer.start_link(JobMonitor, %{sid: @sid_bad_request})
 
       mock_global(fn
         %{method: :get, url: "https://splunk.example.com/services/search/jobs/SID-1"} ->
@@ -77,6 +81,12 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
               ]
             }
           }
+
+        %{method: :get, url: "https://splunk.example.com/services/search/jobs/SID-4"} ->
+          %Tesla.Env{status: 404, body: ""}
+
+        %{method: :get, url: "https://splunk.example.com/services/search/jobs/SID-5"} ->
+          %Tesla.Env{status: 400}
       end)
 
       on_exit(fn ->
@@ -84,9 +94,11 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
         if Process.alive?(pid1), do: GenServer.stop(pid1, :normal)
         if Process.alive?(pid2), do: GenServer.stop(pid2, :normal)
         if Process.alive?(pid3), do: GenServer.stop(pid3, :normal)
+        if Process.alive?(pid4), do: GenServer.stop(pid4, :normal)
+        if Process.alive?(pid5), do: GenServer.stop(pid5, :normal)
       end)
 
-      {:ok, pid1: pid1, pid2: pid2, pid3: pid3}
+      {:ok, pid1: pid1, pid2: pid2, pid3: pid3, pid4: pid4, pid5: pid5}
     end
 
     test "process can be started", %{pid1: pid} do
@@ -124,6 +136,16 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
                is_zombie: true,
                sid: @sid_zombie
              } = GenServer.call(pid, :get_state)
+    end
+
+    test "receives error response from Splunk API", %{pid4: pid4, pid5: pid5} do
+      send(pid4, :tick)
+      send(pid5, :tick)
+
+      Process.sleep(100)
+
+      refute Process.alive?(pid4)
+      refute Process.alive?(pid5)
     end
   end
 end
