@@ -33,7 +33,7 @@ defmodule OffBroadwaySplunk.MixProject do
 
   def application do
     [
-      mod: {OffBroadwaySplunk.Application, []},
+      # mod: {OffBroadwaySplunk.Application, []},
       extra_applications: extra_applications(Mix.env())
     ]
   end
