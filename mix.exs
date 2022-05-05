@@ -13,7 +13,7 @@ defmodule OffBroadwaySplunk.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: [
-        maintainers: ["Rolf Håvard Blindheim"],
+        maintainers: ["Rolf Håvard Blindheim <rolf.havard.blindheim@intility.no>"],
         licenses: ["Apache-2.0"],
         links: %{Gitlab: @source_url}
       ],
@@ -33,14 +33,23 @@ defmodule OffBroadwaySplunk.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      mod: {OffBroadwaySplunk.Application, []},
+      extra_applications: extra_applications(Mix.env())
     ]
   end
+
+  def extra_applications(env) when env in [:dev, :test], do: [:logger, :hackney]
+  def extra_applications(_), do: [:logger]
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:broadway, "~> 1.0"},
+      {:decimal, "~> 2.0"},
+      {:exconstructor, "~> 1.2"},
+      {:tesla, "~> 1.4"},
+      {:jason, ">= 1.0.0"},
+      {:hackney, "~> 1.18", optional: true},
       {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
       {:junit_formatter, "~> 3.3", only: :test},
       {:mox, "~> 1.0", only: :test}

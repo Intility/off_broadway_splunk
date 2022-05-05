@@ -1,2 +1,2 @@
 ExUnit.configure(formatters: [JUnitFormatter])
-ExUnit.start()
+ExUnit.start(capture_log: true)
