@@ -11,7 +11,7 @@ defmodule OffBroadwaySplunk.Producer do
       before making a request for more events if there are no events in the stream. Defaults to `1000`.
   """
 
-  use GenStage
-  alias Broadway.Producer
-  alias Broadway.Message
+  # use GenStage
+  # alias Broadway.Producer
+  # alias Broadway.Message
 end
