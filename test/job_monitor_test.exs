@@ -142,7 +142,7 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
       send(pid4, :tick)
       send(pid5, :tick)
 
-      Process.sleep(100)
+      Process.sleep(200)
 
       refute Process.alive?(pid4)
       refute Process.alive?(pid5)
