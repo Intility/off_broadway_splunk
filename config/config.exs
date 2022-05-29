@@ -1,9 +1,15 @@
 import Config
 
-config :tesla, adapter: {Tesla.Adapter.Hackney, [recv_timeout: 30_000]}
+case config_env() do
+  :dev ->
+    config :mix_test_watch, tasks: ["test --cover"]
 
-config :off_broadway_splunk, :api_client,
-  base_url: System.get_env("SPLUNK_BASE_URL", "https://splunk.example.com"),
-  api_token: System.get_env("SPLUNK_API_TOKEN", "your-api-token-here")
+    config :tesla, adapter: {Tesla.Adapter.Hackney, [recv_timeout: 30_000]}
 
-import_config "#{config_env()}.exs"
+    config :off_broadway_splunk, :api_client,
+      base_url: System.get_env("SPLUNK_BASE_URL", "https://splunk.example.com"),
+      api_token: System.get_env("SPLUNK_API_TOKEN", "your-api-token-here")
+
+  :test ->
+    config :tesla, adapter: Tesla.Mock
+end
