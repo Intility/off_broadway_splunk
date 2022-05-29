@@ -24,6 +24,7 @@ lint:elixir:
 test:elixir:
   extends: .elixir
   stage: test
+  coverage: '\d+.\d+\%\s+\|\s+Total'
   variables:
     MIX_ENV: test
   script:
