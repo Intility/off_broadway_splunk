@@ -1,12 +1,12 @@
-# Gitlab CI pipeline - also includes publishing stage if
-# we ever get there...
-# https://www.agundy.com/2021/03/10/elixir-gitlab-ci.html
-
 stages:
   - test
+  - docs
 
 .elixir: &elixir
   image: elixir:1.13
+  cache:
+    - paths:
+        - deps
   before_script:
     - mix local.hex --force
     - mix local.rebar --force
@@ -34,3 +34,17 @@ test:elixir:
       - _build/test/lib/off_broadway_splunk/test-junit-report.xml
     reports:
       junit: _build/test/lib/off_broadway_splunk/test-junit-report.xml
+
+pages:
+  extends: .elixir
+  stage: docs
+  variables:
+    MIX_ENV: test
+  script:
+    - mix docs --output public
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
+    - tags
