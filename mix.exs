@@ -49,7 +49,7 @@ defmodule OffBroadwaySplunk.MixProject do
       {:tesla, "~> 1.4"},
       {:jason, ">= 1.0.0"},
       {:hackney, "~> 1.18", optional: true},
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.28.4", only: [:dev, :test], runtime: false},
       {:junit_formatter, "~> 3.3", only: :test},
       {:mox, "~> 1.0", only: :test}
     ]
