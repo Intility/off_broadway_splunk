@@ -1,4 +1,4 @@
-# OffBroadwaySplunk
+# OffBroadway.Splunk
 
 [![pipeline status](https://gitlab.intility.com/soc/off_broadway_splunk/badges/master/pipeline.svg)](https://gitlab.intility.com/soc/off_broadway_splunk/-/commits/master)
 [![coverage report](https://gitlab.intility.com/soc/off_broadway_splunk/badges/master/coverage.svg)](https://gitlab.intility.com/soc/off_broadway_splunk/-/commits/master)

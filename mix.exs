@@ -1,4 +1,4 @@
-defmodule OffBroadwaySplunk.MixProject do
+defmodule OffBroadway.Splunk.MixProject do
   use Mix.Project
 
   @version "0.1.0"
@@ -33,7 +33,8 @@ defmodule OffBroadwaySplunk.MixProject do
 
   def application do
     [
-      extra_applications: extra_applications(Mix.env())
+      extra_applications: extra_applications(Mix.env()),
+      mod: {OffBroadway.Splunk.Application, []}
     ]
   end
 

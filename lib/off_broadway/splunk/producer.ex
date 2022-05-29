@@ -1,4 +1,4 @@
-defmodule OffBroadwaySplunk.Producer do
+defmodule OffBroadway.Splunk.Producer do
   @moduledoc """
   GenStage Producer for a Splunk Event Stream.
 

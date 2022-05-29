@@ -1,4 +1,4 @@
-defmodule OffBroadwaySplunk.JobMonitor do
+defmodule OffBroadway.Splunk.JobMonitor do
   @moduledoc """
   GenServer responsible for monitoring a Splunk SID search job.
 
@@ -39,7 +39,7 @@ defmodule OffBroadwaySplunk.JobMonitor do
   require Logger
 
   alias Decimal, as: D
-  alias OffBroadwaySplunk.ApiClient
+  alias OffBroadway.Splunk.ApiClient
 
   def start_link(%{sid: sid} = params),
     do: GenServer.start_link(__MODULE__, params, name: :"#{__MODULE__}-#{sid}")

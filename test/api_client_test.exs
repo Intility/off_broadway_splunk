@@ -1,9 +1,9 @@
-defmodule OffBroadwaySplunk.ApiClientTest do
+defmodule OffBroadway.Splunk.ApiClientTest do
   use ExUnit.Case, async: true
 
   import Tesla.Mock
 
-  alias OffBroadwaySplunk.ApiClient
+  alias OffBroadway.Splunk.ApiClient
 
   setup do
     orig_config = Application.get_env(:off_broadway_splunk, :api_client)

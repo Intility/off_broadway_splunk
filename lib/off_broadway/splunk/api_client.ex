@@ -1,4 +1,4 @@
-defmodule OffBroadwaySplunk.ApiClient do
+defmodule OffBroadway.Splunk.ApiClient do
   @moduledoc """
   API Client for Splunk.
   """

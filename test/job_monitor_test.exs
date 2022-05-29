@@ -1,8 +1,8 @@
-defmodule OffBroadwaySplunk.JobMonitorTest do
+defmodule OffBroadway.Splunk.JobMonitorTest do
   use ExUnit.Case, async: false
 
   import Tesla.Mock
-  alias OffBroadwaySplunk.JobMonitor
+  alias OffBroadway.Splunk.JobMonitor
 
   @sid_complete "SID-1"
   @sid_incomplete "SID-2"
@@ -10,7 +10,7 @@ defmodule OffBroadwaySplunk.JobMonitorTest do
   @sid_not_found "SID-4"
   @sid_bad_request "SID-5"
 
-  describe "OffBroadwaySplunk.JobMonitor" do
+  describe "OffBroadway.Splunk.JobMonitor" do
     setup do
       orig_config = Application.get_env(:off_broadway_splunk, :api_client)
 
