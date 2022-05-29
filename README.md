@@ -16,7 +16,7 @@ This can be achieved by adding `off_broadway_splunk` to your list of dependencie
 ```elixir
 def deps do
   [
-    {:off_broadway_splunk, git: "git@gitlab.intility.com:soc/constream.git", tag: "0.1.0"}
+    {:off_broadway_splunk, git: "git@gitlab.intility.com:soc/off_broadway_splunk.git", tag: "0.1.0"}
   ]
 end
 ```
