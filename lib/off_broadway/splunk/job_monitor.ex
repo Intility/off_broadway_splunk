@@ -40,9 +40,10 @@ defmodule OffBroadway.Splunk.JobMonitor do
 
   alias Decimal, as: D
   alias OffBroadway.Splunk.ApiClient
+  import OffBroadway.Splunk, only: [via_tuple: 1]
 
   def start_link(%{sid: sid} = params),
-    do: GenServer.start_link(__MODULE__, params, name: :"#{__MODULE__}-#{sid}")
+    do: GenServer.start_link(__MODULE__, params, name: via_tuple("#{__MODULE__}-#{sid}"))
 
   @impl true
   def init(%{sid: sid}) do
