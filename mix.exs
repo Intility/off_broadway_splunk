@@ -52,6 +52,7 @@ defmodule OffBroadway.Splunk.MixProject do
       {:hackney, "~> 1.18", optional: true},
       {:ex_doc, "~> 0.28.4", only: [:dev, :test], runtime: false},
       {:junit_formatter, "~> 3.3", only: :test},
+      {:mix_test_watch, "~> 1.1", only: :dev},
       {:mox, "~> 1.0", only: :test}
     ]
   end
