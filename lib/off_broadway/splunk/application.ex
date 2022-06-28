@@ -5,8 +5,7 @@ defmodule OffBroadway.Splunk.Application do
 
   def start(_type, _args) do
     children = [
-      {Registry, keys: :unique, name: OffBroadway.Splunk.Registry},
-      {Task.Supervisor, name: OffBroadway.Splunk.TaskSupervisor}
+      {OffBroadway.Splunk.MyBroadway, []}
     ]
 
     opts = [strategy: :one_for_one, name: OffBroadway.Splunk.Supervisor]

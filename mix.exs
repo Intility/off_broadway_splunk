@@ -46,14 +46,16 @@ defmodule OffBroadway.Splunk.MixProject do
     [
       {:broadway, "~> 1.0"},
       {:decimal, "~> 2.0"},
-      {:exconstructor, "~> 1.2"},
-      {:tesla, "~> 1.4"},
-      {:jason, ">= 1.0.0"},
-      {:hackney, "~> 1.18", optional: true},
       {:ex_doc, "~> 0.28.4", only: [:dev, :test], runtime: false},
+      {:exconstructor, "~> 1.2"},
+      {:hackney, "~> 1.18", optional: true},
+      {:jason, ">= 1.0.0"},
       {:junit_formatter, "~> 3.3", only: :test},
       {:mix_test_watch, "~> 1.1", only: :dev},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:nimble_options, "~> 0.3 or ~> 0.4"},
+      {:telemetry, "~> 1.1"},
+      {:tesla, "~> 1.4"}
     ]
   end
 end
