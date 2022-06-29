@@ -48,7 +48,9 @@ defmodule OffBroadway.Splunk.Options do
         module. Any option set here can also be configured in `config.exs`.
         """,
         default: []
-      ]
+      ],
+      test_pid: [type: :pid, doc: false],
+      message_server: [type: :pid, doc: false]
     ]
   end
 
