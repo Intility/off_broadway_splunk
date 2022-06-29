@@ -54,7 +54,6 @@ defmodule OffBroadway.Splunk.MixProject do
       {:jason, ">= 1.0.0"},
       {:junit_formatter, "~> 3.3", only: :test},
       {:mix_test_watch, "~> 1.1", only: :dev},
-      {:mox, "~> 1.0", only: :test},
       {:nimble_options, "~> 0.3 or ~> 0.4"},
       {:telemetry, "~> 1.1"},
       {:tesla, "~> 1.4"}
