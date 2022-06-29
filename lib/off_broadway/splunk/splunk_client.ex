@@ -76,7 +76,8 @@ defmodule OffBroadway.Splunk.SplunkClient do
   end
 
   defp ack_message(_message, _ack_options) do
-    IO.puts("acking message!")
+    # TODO - Ack messages to somewhere.
+    :ok
   end
 
   @impl Acknowledger
@@ -98,6 +99,8 @@ defmodule OffBroadway.Splunk.SplunkClient do
     Logger.error(
       "Unable to fetch events from Splunk SID #{ack_ref}. Status code: #{status_code}."
     )
+
+    :error
   end
 
   defp build_acknowledger(_message, ack_ref) do
