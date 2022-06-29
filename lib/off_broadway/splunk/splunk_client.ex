@@ -93,7 +93,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
     end)
   end
 
-  defp wrap_received_messages({:ok, %Tesla.Env{status: status_code} = env}, ack_ref) do
+  defp wrap_received_messages({:ok, %Tesla.Env{status: status_code} = _env}, ack_ref) do
     # TODO - Better error handling
     Logger.error(
       "Unable to fetch events from Splunk SID #{ack_ref}. Status code: #{status_code}."
