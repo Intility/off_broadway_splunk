@@ -33,6 +33,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
     * `Tesla.Middleware.BaseUrl` middleware configured with `base_url` passed via `opts`.
     * `Tesla.Middleware.BearerAuth` middleware configured with `api_token` passed via `opts`.
+    * `Tesla.Middleware.Query` middleware configured with `query` passed via `opts`.
     * `Tesla.Middleware.JSON` middleware configured with `Jason` engine.
 
   """
