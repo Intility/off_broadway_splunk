@@ -54,7 +54,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
       for msg <- messages do
         ack_data = %{
-          receipt: %{id: "ID_#{msg}", receipt_handle: "ReceiptHandle_#{msg}"},
+          receipt: %{id: "splunk.example.com;my-index;329:7062435"},
           test_pid: opts[:test_pid]
         }
 
@@ -289,8 +289,8 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
     #   MessageServer.push_messages(message_server, 1..20)
 
-    #   assert_receive {:messages_acknowledged, 10}
-    #   assert_receive {:messages_acknowledged, 10}
+    #   assert_receive {:messages_deleted, 10}
+    #   assert_receive {:messages_deleted, 10}
 
     #   stop_broadway(pid)
     # end

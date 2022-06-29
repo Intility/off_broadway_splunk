@@ -1,12 +1,26 @@
 defmodule OffBroadway.Splunk.Producer do
   @moduledoc """
   GenStage Producer for a Splunk Event Stream.
-
   Broadway producer acts as a consumer for the specified Splunk SID.
 
   ## Producer Options
 
   #{NimbleOptions.docs(OffBroadway.Splunk.Options.definition())}
+
+  ## Acknowledgements
+
+  You can use the `on_success` and `on_failure` options to control how messages are
+  acknowledged. You can set these options when starting the Splunk producer or change
+  them for each message through `Broadway.Message.configure_ack/2`. By default, successful
+  messages are acked (`:ack`) and failed messages are not (`:noop`).
+
+  The possible values for `:on_success` and `:on_failure` are:
+
+    * `:ack` - acknowledge the message. Splunk does not have any concept of acking messages,
+      because we are just consuming messages from a web api endpoint.
+      For now, we are just logging a debug message for acked messages.
+
+    * `:noop` - do not acknowledge the message. No action are taken.
 
   ## Telemetry
 

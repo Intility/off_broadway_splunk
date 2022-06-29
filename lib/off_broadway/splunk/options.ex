@@ -25,6 +25,22 @@ defmodule OffBroadway.Splunk.Options do
         """,
         default: 5000
       ],
+      on_success: [
+        type: :atom,
+        doc: """
+        Configures the acking behaviour for successful messages. See the "Acknowledgements"
+        section below for all the possible values.
+        """,
+        default: :ack
+      ],
+      on_failure: [
+        type: :atom,
+        doc: """
+        Configures the acking behaviour for failed messages. See the "Acknowledgements"
+        section below for all the possible values.
+        """,
+        default: :noop
+      ],
       splunk_client: [
         doc: """
         A module that implements the `OffBroadway.Splunk.Client` behaviour.
@@ -62,6 +78,4 @@ defmodule OffBroadway.Splunk.Options do
 
   def type_non_empty_string(value, [{:name, name}]),
     do: {:error, "expected :#{name} to be a non-empty string, got: #{inspect(value)}"}
-
-  def type_splunk_client_module(nil, _), do: {:ok, OffBroadway.Splunk.SplunkClient}
 end

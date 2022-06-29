@@ -75,9 +75,11 @@ defmodule OffBroadway.Splunk.SplunkClient do
     (msg_ack_options[option] || Map.fetch!(ack_options, option)) == :ack
   end
 
-  defp ack_message(_message, _ack_options) do
-    # TODO - Ack messages to somewhere.
-    :ok
+  @impl true
+  def ack_message(message, _ack_options) do
+    Logger.debug(
+      "Acknowledging message with receipt: #{inspect(extract_message_receipt(message))}."
+    )
   end
 
   @impl Acknowledger
@@ -87,26 +89,38 @@ defmodule OffBroadway.Splunk.SplunkClient do
          {:ok, %Tesla.Env{status: 200, body: %{"results" => messages}}},
          ack_ref
        ) do
-    # TODO - Add proper metadata
     Enum.map(messages, fn message ->
+      metadata =
+        Map.filter(message, fn {key, _val} -> String.starts_with?(key, "_") and key != "_raw" end)
+
       acknowledger = build_acknowledger(message, ack_ref)
-      %Message{data: message, metadata: %{foo: "bar"}, acknowledger: acknowledger}
+      %Message{data: message, metadata: metadata, acknowledger: acknowledger}
     end)
   end
 
-  defp wrap_received_messages({:ok, %Tesla.Env{status: status_code} = _env}, ack_ref) do
-    # TODO - Better error handling
+  defp wrap_received_messages(
+         {:ok, %Tesla.Env{status: status_code, body: %{"messages" => reason}} = _env},
+         ack_ref
+       ) do
     Logger.error(
-      "Unable to fetch events from Splunk SID #{ack_ref}. Status code: #{status_code}."
+      "Unable to fetch events from Splunk SID #{ack_ref}. " <>
+        "Request failed with status code: #{status_code} and reason: #{inspect(reason)}."
     )
 
-    :error
+    []
   end
 
-  defp build_acknowledger(_message, ack_ref) do
-    # TODO - Add message receipt (id + handle) or something
-    {__MODULE__, ack_ref, %{receipt: "receipt here!"}}
+  defp build_acknowledger(message, ack_ref) do
+    receipt = %{id: build_splunk_message_id(message)}
+    {__MODULE__, ack_ref, %{receipt: receipt}}
   end
+
+  defp extract_message_receipt(%{acknowledger: {_, _, %{receipt: receipt}}}), do: receipt
+
+  defp build_splunk_message_id(%{"_si" => si, "_cd" => cd}) when is_list(si),
+    do: "#{Enum.join(si, ";")};#{cd}"
+
+  defp build_splunk_message_id(_), do: nil
 
   @spec client_option(Keyword.t(), Atom.t()) :: any
   defp client_option(opts, :base_url), do: Keyword.get(opts, :base_url, "")

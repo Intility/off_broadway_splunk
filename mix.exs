@@ -26,7 +26,7 @@ defmodule OffBroadway.Splunk.MixProject do
         ]
       ],
       test_coverage: [
-        summary: [threshold: 58]
+        summary: [threshold: 80]
       ]
     ]
   end
