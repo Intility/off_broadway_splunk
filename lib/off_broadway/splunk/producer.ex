@@ -16,7 +16,7 @@ defmodule OffBroadway.Splunk.Producer do
       from Splunk.
 
       * measurement: `%{time: System.monotonic_time}`
-      * metadata: `%{sid: string}`
+      * metadata: `%{sid: string, progress: integer}`
 
     * `[:off_broadway_splunk, :sid_status, :stop]` - Dispatched when polling SID status from Splunk
       is complete.
@@ -172,9 +172,6 @@ defmodule OffBroadway.Splunk.Producer do
     messages = receive_messages_from_splunk(state, demand)
     new_demand = demand - length(messages)
 
-    Logger.info("New demand: #{new_demand}")
-    Logger.info("Processed events: #{state.processed_events}")
-
     receive_timer =
       case {messages, new_demand} do
         {[], _} -> schedule_receive_messages(state.receive_interval)
@@ -194,19 +191,24 @@ defmodule OffBroadway.Splunk.Producer do
   defp handle_receive_messages(state), do: {:noreply, [], state}
 
   defp receive_messages_from_splunk(
-         %{sid: sid, processed_events: processed_events, splunk_client: {module, client_opts}},
+         %{sid: sid, processed_events: processed_events, splunk_client: {client, client_opts}},
          total_demand
        ) do
     metadata = %{sid: sid, demand: total_demand}
+
+    client_opts =
+      Keyword.put(client_opts, :query,
+        output_mode: "json",
+        count: total_demand,
+        offset: processed_events
+      )
 
     :telemetry.span(
       [:off_broadway_splunk, :receive_messages],
       metadata,
       fn ->
-        with client <- module.client(client_opts),
-             messages <- module.receive_messages(client, sid, total_demand, processed_events) do
-          {messages, Map.put(metadata, :messages, messages)}
-        end
+        messages = client.receive_messages(sid, total_demand, client_opts)
+        {messages, Map.put(metadata, :messages, messages)}
       end
     )
   end

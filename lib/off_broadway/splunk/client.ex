@@ -12,13 +12,11 @@ defmodule OffBroadway.Splunk.Client do
 
   alias Broadway.Message
 
-  @type client :: Tesla.Client.t()
-  @type status :: Tesla.Env.t()
   @type messages :: [Message.t()]
 
   @callback init(opts :: any) :: {:ok, normalized_opts :: any} | {:error, reason :: binary}
-  @callback client(opts :: keyword) :: client
-  @callback receive_status(client :: client, sid :: binary) :: status
-  @callback receive_messages(client :: client, sid :: binary, demand :: pos_integer, opts :: any) ::
-              messages
+
+  @callback receive_status(sid :: binary, opts :: any) ::
+              {:ok, response :: any} | {:error, reason :: any}
+  @callback receive_messages(sid :: binary, demand :: pos_integer, opts :: any) :: messages
 end

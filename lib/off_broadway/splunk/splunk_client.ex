@@ -36,12 +36,12 @@ defmodule OffBroadway.Splunk.SplunkClient do
     * `Tesla.Middleware.JSON` middleware configured with `Jason` engine.
 
   """
-  @impl true
   @spec client(opts :: Keyword.t()) :: Tesla.Client.t()
   def client(opts) do
     middleware = [
       {Tesla.Middleware.BaseUrl, client_option(opts, :base_url)},
       {Tesla.Middleware.BearerAuth, token: client_option(opts, :api_token)},
+      {Tesla.Middleware.Query, client_option(opts, :query)},
       {Tesla.Middleware.JSON, engine: Jason}
     ]
 
@@ -49,15 +49,13 @@ defmodule OffBroadway.Splunk.SplunkClient do
   end
 
   @impl true
-  def receive_status(client, sid),
-    do: client |> Tesla.get("/services/search/jobs/#{sid}", query: [output_mode: "json"])
+  def receive_status(sid, opts),
+    do: client(opts) |> Tesla.get("/services/search/jobs/#{sid}", query: [output_mode: "json"])
 
   @impl true
-  def receive_messages(client, sid, demand, offset) do
-    client
-    |> Tesla.get("/services/search/jobs/#{sid}/results",
-      query: [output_mode: "json", count: demand, offset: offset]
-    )
+  def receive_messages(sid, _demand, opts) do
+    client(opts)
+    |> Tesla.get("/services/search/jobs/#{sid}/results")
     |> wrap_received_messages(sid)
   end
 
@@ -110,4 +108,5 @@ defmodule OffBroadway.Splunk.SplunkClient do
   @spec client_option(Keyword.t(), Atom.t()) :: any
   defp client_option(opts, :base_url), do: Keyword.get(opts, :base_url, "")
   defp client_option(opts, :api_token), do: Keyword.get(opts, :api_token, "")
+  defp client_option(opts, :query), do: Keyword.get(opts, :query, [])
 end

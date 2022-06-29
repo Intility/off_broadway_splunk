@@ -1,6 +1,8 @@
 defmodule OffBroadway.Splunk.Leader do
   @moduledoc """
-  Leader process..
+  The `OffBroadway.Splunk.Leader` module is responsible to poll Splunk
+  for status on a SID and notify the `OffBroadway.Splunk.Producer` when
+  Splunk is ready to deliver messages for given SID.
   """
 
   defmodule State do
@@ -41,6 +43,7 @@ defmodule OffBroadway.Splunk.Leader do
     {:ok, client_opts} = client.init(opts)
 
     state = %{
+      progress: 0,
       is_done: false,
       splunk_client: {client, client_opts}
     }
@@ -55,26 +58,22 @@ defmodule OffBroadway.Splunk.Leader do
     {:stop, :normal, state}
   end
 
-  def handle_info(
-        :receive_sid_status,
-        %{sid: sid, is_done: false, splunk_client: {module, client_opts}} = state
-      ) do
-    # TODO - Add telemetry!
-    with client <- module.client(client_opts),
-         {:ok, %{status: 200} = response} <- module.receive_status(client, sid) do
-      state = update_state_from_response(state, response)
-      receive_interval = calculate_receive_interval(state)
+  def handle_info(:receive_sid_status, %{sid: sid, is_done: false} = state) do
+    case receive_sid_status(state) do
+      {:ok, %{status: 200} = response} ->
+        state = update_state_from_response(state, response)
+        receive_interval = calculate_receive_interval(state)
 
-      unless state.is_done do
-        Logger.info(
-          "SID #{sid} is #{Float.ceil(state.done_progress * 100, 2)}% complete, " <>
-            "rescheduling update in #{receive_interval} seconds"
-        )
-      end
+        unless state.is_done do
+          Logger.info(
+            "SID #{sid} is #{Float.ceil(state.done_progress * 100, 2)}% complete, " <>
+              "rescheduling update in #{receive_interval} seconds"
+          )
+        end
 
-      Process.send_after(self(), :receive_sid_status, receive_interval * 1000)
-      {:noreply, state}
-    else
+        Process.send_after(self(), :receive_sid_status, receive_interval * 1000)
+        {:noreply, state}
+
       {:ok, %{status: 404}} ->
         Logger.error("SID #{sid} does not exist - Shutting down")
         {:stop, :normal, state}
@@ -98,7 +97,24 @@ defmodule OffBroadway.Splunk.Leader do
     {:noreply, state}
   end
 
-  @spec update_state_from_response(State.t(), Tesla.Env.t()) :: State.t()
+  @spec receive_sid_status(state :: State.t()) :: Tesla.Env.t()
+  defp receive_sid_status(
+         %{sid: sid, done_progress: progress, splunk_client: {client, client_opts}} = state
+       ) do
+    metadata = %{sid: sid, progress: progress}
+
+    :telemetry.span(
+      [:off_broadway_splunk, :sid_status],
+      metadata,
+      fn ->
+        {:ok, %{status: 200} = response} = env = client.receive_status(sid, client_opts)
+        state = update_state_from_response(state, response)
+        {env, %{metadata | progress: state.done_progress}}
+      end
+    )
+  end
+
+  @spec update_state_from_response(state :: State.t(), response :: Tesla.Env.t()) :: State.t()
   defp update_state_from_response(state, %{
          status: 200,
          body: %{"entry" => [%{"content" => content} = entry | _rest]}
@@ -107,7 +123,7 @@ defmodule OffBroadway.Splunk.Leader do
     |> merge_non_nil_state_fields(State.new(content))
   end
 
-  @spec merge_non_nil_state_fields(State.t(), State.t()) :: State.t()
+  @spec merge_non_nil_state_fields(state_a :: State.t(), state_b :: State.t()) :: State.t()
   defp merge_non_nil_state_fields(state_a, state_b) do
     Map.merge(state_a, state_b, fn
       _key, old_value, new_value when is_nil(new_value) -> old_value
@@ -123,7 +139,7 @@ defmodule OffBroadway.Splunk.Leader do
   #
   #  seconds until next check = (T * (1 / P)) - T
   #
-  @spec calculate_receive_interval(State.t()) :: Integer.t()
+  @spec calculate_receive_interval(state :: State.t()) :: Integer.t()
   defp calculate_receive_interval(%State{done_progress: 1}), do: 0
 
   defp calculate_receive_interval(%State{published: published, done_progress: progress}) do
