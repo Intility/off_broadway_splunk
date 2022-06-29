@@ -24,6 +24,9 @@ defmodule OffBroadway.Splunk.MixProject do
           "README.md",
           "LICENSE"
         ]
+      ],
+      test_coverage: [
+        summary: [threshold: 58]
       ]
     ]
   end
