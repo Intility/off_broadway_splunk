@@ -96,8 +96,8 @@ defmodule MyBroadway do
   end
 
   @impl true
-  def handle_batch(_, messages, _) do
-    IO.puts("Received a batch of messages!")
+  def handle_batch(_batcher, messages, _batch_info, _context) do
+    IO.puts("Received a batch of #{length(messages)} messages!")
     messages
   end
 end
