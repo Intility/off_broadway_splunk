@@ -1,7 +1,8 @@
 defmodule OffBroadway.Splunk.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.0.1"
+  @description "Splunk producer for Broadway data processing pipelines"
   @source_url "https://gitlab.intility.com/soc/off_broadway_splunk"
 
   def project do
@@ -11,6 +12,7 @@ defmodule OffBroadway.Splunk.MixProject do
       elixir: "~> 1.13",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      description: @description,
       deps: deps(),
       package: [
         maintainers: ["Rolf Håvard Blindheim <rolf.havard.blindheim@intility.no>"],
