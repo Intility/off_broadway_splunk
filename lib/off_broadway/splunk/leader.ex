@@ -48,18 +48,18 @@ defmodule OffBroadway.Splunk.Leader do
       splunk_client: {client, client_opts}
     }
 
-    Process.send_after(self(), :receive_sid_status, 0)
+    Process.send_after(self(), :receive_job_status, 0)
     {:ok, State.new(opts) |> Map.merge(state)}
   end
 
   @impl true
-  def handle_info(:receive_sid_status, %State{is_zombie: true} = state) do
+def handle_info(:receive_job_status, %State{is_zombie: true} = state) do
     Logger.error("Job is in zombie state - Shutting down")
     {:stop, :normal, state}
   end
 
-  def handle_info(:receive_sid_status, %{sid: sid, is_done: false} = state) do
-    case receive_sid_status(state) do
+  def handle_info(:receive_job_status, %{sid: sid, is_done: false} = state) do
+    case receive_job_status(state) do
       {:ok, %{status: 200} = response} ->
         state = update_state_from_response(state, response)
         receive_interval = calculate_receive_interval(state)
@@ -71,7 +71,7 @@ defmodule OffBroadway.Splunk.Leader do
           )
         end
 
-        Process.send_after(self(), :receive_sid_status, receive_interval * 1000)
+        Process.send_after(self(), :receive_job_status, receive_interval * 1000)
         {:noreply, state}
 
       {:ok, %{status: 404}} ->
@@ -85,7 +85,7 @@ defmodule OffBroadway.Splunk.Leader do
   end
 
   def handle_info(
-        :receive_sid_status,
+        :receive_job_status,
         %State{sid: sid, is_done: true, broadway: broadway} = state
       ) do
     Logger.info("Splunk is done processing SID #{sid} - Ready to consume events")
@@ -97,14 +97,14 @@ defmodule OffBroadway.Splunk.Leader do
     {:noreply, state}
   end
 
-  @spec receive_sid_status(state :: State.t()) :: Tesla.Env.t()
-  defp receive_sid_status(
+  @spec receive_job_status(state :: State.t()) :: Tesla.Env.t()
+  defp receive_job_status(
          %{sid: sid, done_progress: progress, splunk_client: {client, client_opts}} = state
        ) do
     metadata = %{sid: sid, progress: progress}
 
     :telemetry.span(
-      [:off_broadway_splunk, :sid_status],
+      [:off_broadway_splunk, :job_status],
       metadata,
       fn ->
         {:ok, %{status: 200} = response} = env = client.receive_status(sid, client_opts)

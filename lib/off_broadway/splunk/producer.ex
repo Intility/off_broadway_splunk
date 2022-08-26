@@ -26,19 +26,19 @@ defmodule OffBroadway.Splunk.Producer do
 
   This library exposes the following telemetry events:
 
-    * `[:off_broadway_splunk, :sid_status, :start]` - Dispatched before polling SID status
+    * `[:off_broadway_splunk, :job_status, :start]` - Dispatched before polling SID status
       from Splunk.
 
       * measurement: `%{time: System.monotonic_time}`
       * metadata: `%{sid: string, progress: integer}`
 
-    * `[:off_broadway_splunk, :sid_status, :stop]` - Dispatched when polling SID status from Splunk
+    * `[:off_broadway_splunk, :job_status, :stop]` - Dispatched when polling SID status from Splunk
       is complete.
 
       * measurement: `%{time: System.monotonic_time}`
       * metadata: %{sid: string, progress: integer}
 
-    * `[:off_broadway_splunk, :sid_status, :exception]` - Dispatched after a failure while polling
+    * `[:off_broadway_splunk, :job_status, :exception]` - Dispatched after a failure while polling
       SID status from Splunk.
 
       * measurement: `%{duration: native_time}`
