@@ -18,7 +18,7 @@ defmodule OffBroadway.Splunk.Producer do
 
     * `:ack` - acknowledge the message. Splunk does not have any concept of acking messages,
       because we are just consuming messages from a web api endpoint.
-      For now, we are just logging a debug message for acked messages.
+      For now we are just executing a `:telemetry` event for acked messages.
 
     * `:noop` - do not acknowledge the message. No action are taken.
 
@@ -58,6 +58,19 @@ defmodule OffBroadway.Splunk.Producer do
 
       * measurement: `%{time: System.monotonic_time}`
       * metadata: `%{sid: string, demand: integer}`
+
+    * `[:off_broadway_splunk, :receive_messages, :ack]` - Dispatched when acking a message.
+
+      * measurement: `%{count: 1, time: System.monotonic_time}`
+      * meatadata:
+
+        ```
+        %{
+          sid: string,
+          message_id: string,
+          receipt: receipt
+        }
+        ```
 
     * `[:off_broadway_splunk, :receive_messages, :stop]` - Dispatched after messages have been
       received from Splunk and "wrapped".
