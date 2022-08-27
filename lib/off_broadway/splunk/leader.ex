@@ -53,7 +53,7 @@ defmodule OffBroadway.Splunk.Leader do
   end
 
   @impl true
-def handle_info(:receive_job_status, %State{is_zombie: true} = state) do
+  def handle_info(:receive_job_status, %State{is_zombie: true} = state) do
     Logger.error("Job is in zombie state - Shutting down")
     {:stop, :normal, state}
   end
