@@ -78,12 +78,10 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   @impl true
   def ack_message(message, %{sid: sid}) do
-    receipt = extract_message_receipt(message)
-
     :telemetry.execute(
       [:off_broadway_splunk, :receive_messages, :ack],
-      %{count: 1, time: System.monotonic_time()},
-      %{sid: sid, message_id: Map.fetch!(receipt, :id), receipt: receipt}
+      %{time: System.monotonic_time()},
+      %{sid: sid, receipt: extract_message_receipt(message)}
     )
   end
 

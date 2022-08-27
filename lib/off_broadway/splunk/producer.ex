@@ -61,7 +61,7 @@ defmodule OffBroadway.Splunk.Producer do
 
     * `[:off_broadway_splunk, :receive_messages, :ack]` - Dispatched when acking a message.
 
-      * measurement: `%{count: 1, time: System.monotonic_time}`
+      * measurement: `%{time: System.monotonic_time}`
       * meatadata:
 
         ```
@@ -81,7 +81,7 @@ defmodule OffBroadway.Splunk.Producer do
         ```
         %{
           sid: string,
-          messages: integer,
+          received: integer,
           demand: integer
         }
         ```
@@ -235,7 +235,7 @@ defmodule OffBroadway.Splunk.Producer do
       metadata,
       fn ->
         messages = client.receive_messages(sid, total_demand, client_opts)
-        {messages, Map.put(metadata, :messages, length(messages))}
+        {messages, Map.put(metadata, :received, length(messages))}
       end
     )
   end

@@ -59,7 +59,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
         }
 
         metadata = %{custom: "custom-data"}
-        %Message{data: msg, metadata: metadata, acknowledger: {__MODULE__, ack_ref: ack_data}}
+        %Message{data: msg, metadata: metadata, acknowledger: {__MODULE__, :ack_ref, ack_data}}
       end
     end
 
@@ -282,18 +282,15 @@ defmodule OffBroadway.Splunk.ProducerTest do
       stop_broadway(pid)
     end
 
-    # FIXME - This doesn't run
-    # test "acknowledged messages" do
-    #   {:ok, message_server} = MessageServer.start_link()
-    #   {:ok, pid} = start_broadway(message_server)
+    test "acknowledged messages" do
+      {:ok, message_server} = MessageServer.start_link()
+      {:ok, pid} = start_broadway(message_server)
 
-    #   MessageServer.push_messages(message_server, 1..20)
+      MessageServer.push_messages(message_server, 1..20)
+      assert_receive {:messages_acknowledged, 10}
 
-    #   assert_receive {:messages_deleted, 10}
-    #   assert_receive {:messages_deleted, 10}
-
-    #   stop_broadway(pid)
-    # end
+      stop_broadway(pid)
+    end
 
     test "emit a telemetry start event with demand" do
       self = self()
@@ -315,12 +312,12 @@ defmodule OffBroadway.Splunk.ProducerTest do
       MessageServer.push_messages(message_server, [2])
 
       assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :start],
-                      %{system_time: _}, %{demand: 10}}
+                      %{system_time: _}, %{sid: _, demand: 10}}
 
       stop_broadway(pid)
     end
 
-    test "emit a telemetry stop event with messages" do
+    test "emit a telemetry stop event with received count" do
       self = self()
       {:ok, message_server} = MessageServer.start_link()
       {:ok, pid} = start_broadway(message_server)
@@ -338,7 +335,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       end)
 
       assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :stop],
-                      %{duration: _}, %{messages: _, demand: 10}}
+                      %{duration: _}, %{sid: _, received: _, demand: 10}}
 
       stop_broadway(pid)
     end

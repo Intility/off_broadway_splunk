@@ -75,7 +75,7 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
                SplunkClient.init(base_opts)
     end
 
-    test "returns a lis of Broadway.Message with :data and :acknowledger set", %{
+    test "returns a list of Broadway.Message with :data and :acknowledger set", %{
       base_opts: base_opts
     } do
       {:ok, opts} = SplunkClient.init(base_opts)
@@ -116,24 +116,33 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
        }}
     end
 
-    test "acknowledge message", %{base_opts: base_opts} do
+    test "emits a telemetry event when acking messages", %{base_opts: base_opts} do
+      self = self()
       {:ok, opts} = SplunkClient.init(base_opts)
 
       ack_data = %{receipt: %{id: "1"}}
-
       fill_persistent_term(opts[:sid], base_opts)
 
-      assert capture_log(fn ->
-               SplunkClient.ack(
-                 opts[:sid],
-                 [
-                   %Message{acknowledger: {SplunkClient, opts[:sid], ack_data}, data: nil}
-                 ],
-                 []
-               )
-             end) =~ """
-             [debug] Acknowledging message with receipt: %{id: \"1\"}.
-             """
+      capture_log(fn ->
+        :ok =
+          :telemetry.attach(
+            "ack_test",
+            [:off_broadway_splunk, :receive_messages, :ack],
+            fn name, measurements, metadata, _ ->
+              send(self, {:telemetry_event, name, measurements, metadata})
+            end,
+            nil
+          )
+      end)
+
+      SplunkClient.ack(
+        opts[:sid],
+        [%Message{acknowledger: {SplunkClient, opts[:sid], ack_data}, data: nil}],
+        []
+      )
+
+      assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :ack],
+                      %{time: _}, %{sid: _, receipt: _}}
     end
   end
 
