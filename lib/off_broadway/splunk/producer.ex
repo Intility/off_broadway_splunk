@@ -35,7 +35,7 @@ defmodule OffBroadway.Splunk.Producer do
     * `[:off_broadway_splunk, :job_status, :stop]` - Dispatched when polling SID status from Splunk
       is complete.
 
-      * measurement: `%{time: System.monotonic_time}`
+      * measurement: `%{time: native_time}`
       * metadata: %{sid: string, progress: integer}
 
     * `[:off_broadway_splunk, :job_status, :exception]` - Dispatched after a failure while polling
@@ -62,13 +62,13 @@ defmodule OffBroadway.Splunk.Producer do
     * `[:off_broadway_splunk, :receive_messages, :stop]` - Dispatched after messages have been
       received from Splunk and "wrapped".
 
-      * measurement: `%{time: System.monotonic_time}`
+      * measurement: `%{time: native_time}`
       * metadata:
 
         ```
         %{
           sid: string,
-          messages: [Broadway.Message.t],
+          messages: integer,
           demand: integer
         }
         ```
@@ -222,7 +222,7 @@ defmodule OffBroadway.Splunk.Producer do
       metadata,
       fn ->
         messages = client.receive_messages(sid, total_demand, client_opts)
-        {messages, Map.put(metadata, :messages, messages)}
+        {messages, Map.put(metadata, :messages, length(messages))}
       end
     )
   end
