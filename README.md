@@ -5,15 +5,13 @@
 
 A Splunk event consumer for [Broadway](https://github.com/dashbitco/broadway).
 
-Read the full documentation [here](http://soc.pages.intility.com/off_broadway_splunk)!
+Broadway producer acts as a consumer for the given Splunk `SID` (Search ID).
+Splunk does not really provide a queue we can consume events from, so we need to fetch events using the
+Splunk Web API. When the Broadway pipeline starts, it will also start a `OffBroadway.Splunk.Leader` process
+which will poll Splunk for job status of the given `SID`. Once Splunk reports that the job is ready to be consumed
+the `OffBroadway.Splunk.Producer` will start fetching events and passing them through the Broadway system.
 
-## How does it work
-
-Generally speaking, Broadway consumes events from systems such as RabbitMQ, Amazon SQS, Apache Kafka, and so on.
-Splunk does not support any concept of acknowledgement (as far as I'm aware of), so this library consume events using
-the Splunk Web API. A producer is assigned a Splunk `SID` (Search ID) to consume, then it will poll Splunk for status on the
-prepare job (which will make events for that `SID` available to download using the Web API) until the job is ready. Next events
-will be downloaded in parallel (depending on how many events the `SID` contains) and handed over to a consumer.
+Read the full documentation [here](http://soc.pages.intility.com/off_broadway_splunk).
 
 ## Installation
 
@@ -23,14 +21,30 @@ directly from the [Intility Gitlab](https://gitlab.intility.com) server by addin
 ```elixir
 def deps do
   [
-    {:off_broadway_splunk, git: "git@gitlab.intility.com:soc/off_broadway_splunk.git", tag: "1.0.0"}
+    {:off_broadway_splunk, git: "git@gitlab.intility.com:soc/off_broadway_splunk.git", tag: "1.0.2"}
   ]
 end
 ```
 
 ## Usage
 
+The `OffBroadway.Splunk.SplunkClient` tries to read the following configuration from `config.exs`.
+
 ```elixir
+# config.exs
+
+config :off_broadway_splunk, :splunk_client,
+  base_url: System.get_env("SPLUNK_BASE_URL", "https://splunk.example.com"),
+  api_token: System.get_env("SPLUNK_API_TOKEN", "your-api-token-here")
+```
+
+Options for the `OffBroadway.Splunk.SplunkClient` can be configured either in `config.exs` or passed as
+options directly to the `OffBroadway.Splunk.Producer` module. Options are merged, with the passed options
+taking precedence over those configured in `config.exs`.
+
+```elixir
+# my_broadway.ex
+
 defmodule MyBroadway do
   use Broadway
 
@@ -40,8 +54,10 @@ defmodule MyBroadway do
     Broadway.start_link(__MODULE__,
       name: __MODULE__,
       producer: [
-        module: {OffBroadway.Splunk.Producer,
-                 sid: "SID-to-consume"}
+        module:
+          {OffBroadway.Splunk.Producer,
+           sid: "SID-to-consume",
+           config: [api_token: "override-api-token"]}
       ],
       processors: [
         default: []
@@ -57,24 +73,6 @@ defmodule MyBroadway do
 
   ...callbacks...
 end
-```
-
-The above configuration assumes that Splunk credentials have been set up in your environment, either by having the
-`SPLUNK_BASE_URL` and `SPLUNK_API_TOKEN` environment variables set, or by passing them directly to the producer.
-
-```
-...
-producer: [
- module: {
-   OffBroadway.Splunk.Producer,
-   sid: "SID-to-consume",
-   config: [
-     base_url: "https://splunk.example.com",
-     api_token: "my-secret-splunk-token"
-   ]
- }
-],
-...
 ```
 
 ### Processing messages
