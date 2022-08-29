@@ -59,19 +59,6 @@ defmodule OffBroadway.Splunk.Producer do
       * measurement: `%{time: System.monotonic_time}`
       * metadata: `%{sid: string, demand: integer}`
 
-    * `[:off_broadway_splunk, :receive_messages, :ack]` - Dispatched when acking a message.
-
-      * measurement: `%{time: System.monotonic_time}`
-      * meatadata:
-
-        ```
-        %{
-          sid: string,
-          message_id: string,
-          receipt: receipt
-        }
-        ```
-
     * `[:off_broadway_splunk, :receive_messages, :stop]` - Dispatched after messages have been
       received from Splunk and "wrapped".
 
@@ -101,6 +88,19 @@ defmodule OffBroadway.Splunk.Producer do
           stacktrace: stacktrace
         }
         ```
+
+    * `[:off_broadway_splunk, :receive_messages, :ack]` - Dispatched when acking a message.
+
+      * measurement: `%{time: System.system_time, count: 1}`
+      * meatadata:
+
+        ```
+        %{
+          sid: string,
+          receipt: receipt
+        }
+        ```
+
   """
 
   use GenStage
