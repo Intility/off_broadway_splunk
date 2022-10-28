@@ -3,7 +3,7 @@ defmodule OffBroadway.Splunk.MixProject do
 
   @version "1.0.2"
   @description "Splunk producer for Broadway data processing pipelines"
-  @source_url "https://gitlab.intility.com/soc/off_broadway_splunk"
+  @source_url "https://github.com/Intility/off_broadway_splunk"
 
   def project do
     [
@@ -17,17 +17,19 @@ defmodule OffBroadway.Splunk.MixProject do
       package: [
         maintainers: ["Rolf Håvard Blindheim <rolf.havard.blindheim@intility.no>"],
         licenses: ["Apache-2.0"],
-        links: %{Gitlab: @source_url}
+        links: %{GitHub: @source_url}
       ],
       docs: [
         main: "readme",
         source_ref: "v#{@version}",
+        source_url: @source_url,
         extras: [
           "README.md",
           "LICENSE"
         ]
       ],
       test_coverage: [
+        [tool: ExCoveralls],
         summary: [threshold: 80]
       ]
     ]
@@ -50,13 +52,13 @@ defmodule OffBroadway.Splunk.MixProject do
     [
       {:broadway, "~> 1.0"},
       {:decimal, "~> 2.0"},
-      {:ex_doc, "~> 0.28.4", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.15.0", only: :test},
+      {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
       {:exconstructor, "~> 1.2"},
       {:hackney, "~> 1.18", optional: true},
       {:jason, ">= 1.0.0"},
-      {:junit_formatter, "~> 3.3", only: :test},
       {:mix_test_watch, "~> 1.1", only: :dev},
-      {:nimble_options, "~> 0.3 or ~> 0.4"},
+      {:nimble_options, "~> 0.4 or ~> 0.5"},
       {:telemetry, "~> 1.1"},
       {:tesla, "~> 1.4"}
     ]

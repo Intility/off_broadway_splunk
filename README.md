@@ -1,7 +1,6 @@
 # OffBroadway.Splunk
 
-[![pipeline status](https://gitlab.intility.com/soc/off_broadway_splunk/badges/master/pipeline.svg)](https://gitlab.intility.com/soc/off_broadway_splunk/-/commits/master)
-[![coverage report](https://gitlab.intility.com/soc/off_broadway_splunk/badges/master/coverage.svg)](https://gitlab.intility.com/soc/off_broadway_splunk/-/commits/master)
+![pipeline status](https://github.com/Intility/off_broadway_splunk/actions/workflows/elixir.yaml/badge.svg?event=push)
 
 A Splunk event consumer for [Broadway](https://github.com/dashbitco/broadway).
 
@@ -11,17 +10,17 @@ Splunk Web API. When the Broadway pipeline starts, it will also start a `OffBroa
 which will poll Splunk for job status of the given `SID`. Once Splunk reports that the job is ready to be consumed
 the `OffBroadway.Splunk.Producer` will start fetching events and passing them through the Broadway system.
 
-Read the full documentation [here](http://soc.pages.intility.com/off_broadway_splunk).
+Read the full documentation [here](https://hexdocs.pm/off_broadway_splunk/readme.html).
 
 ## Installation
 
-This package is not yet available in [Hex](https://hex.pm/docs/publish), so it must be installed
-directly from the [Intility Gitlab](https://gitlab.intility.com) server by adding `off_broadway_splunk` to your list of dependencies in `mix.exs`.
+This package is [available in Hex](https://hex.pm/packages/off_broadway_splunk), and can be installed
+by adding `off_broadway_splunk` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:off_broadway_splunk, git: "git@gitlab.intility.com:soc/off_broadway_splunk.git", tag: "1.0.2"}
+    {:off_broadway_splunk, "~> 1.0"}
   ]
 end
 ```
