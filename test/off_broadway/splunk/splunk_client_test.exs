@@ -45,10 +45,10 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
 
   setup do
     mock(fn
-      %{method: :get, url: "https://splunk.example.com/services/search/jobs/#{@sid1}/results"} ->
+      %{method: :get, url: "https://splunk.example.com/services/search/jobs/#{@sid1}/events"} ->
         %Tesla.Env{status: 200, body: %{"results" => [@message1, @message2]}}
 
-      %{method: :get, url: "https://splunk.example.com/services/search/jobs/#{@sid2}/results"} ->
+      %{method: :get, url: "https://splunk.example.com/services/search/jobs/#{@sid2}/events"} ->
         %Tesla.Env{
           status: 404,
           body: %{"messages" => [%{"type" => "FATAL", "text" => "Unknown sid."}]}
@@ -63,6 +63,7 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
          base_opts: [
            sid: @sid1,
            config: [
+             endpoint: :events,
              base_url: "https://splunk.example.com",
              api_token: "secret-api-token"
            ]
@@ -71,8 +72,12 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
     end
 
     test "init/1 returns normalized client options", %{base_opts: base_opts} do
-      assert {:ok, [base_url: "https://splunk.example.com", api_token: "secret-api-token"]} =
-               SplunkClient.init(base_opts)
+      assert {:ok,
+              [
+                endpoint: :events,
+                base_url: "https://splunk.example.com",
+                api_token: "secret-api-token"
+              ]} = SplunkClient.init(base_opts)
     end
 
     test "returns a list of Broadway.Message with :data and :acknowledger set", %{
@@ -107,6 +112,7 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
          base_opts: [
            sid: @sid1,
            config: [
+             endpoint: :events,
              base_url: "https://splunk.example.com",
              api_token: "secret-api-token"
            ],

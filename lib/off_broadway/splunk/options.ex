@@ -57,6 +57,22 @@ defmodule OffBroadway.Splunk.Options do
           api_token: [
             type: :string,
             doc: "API token used to authenticate on the Splunk instance."
+          ],
+          endpoint: [
+            doc: """
+              Configures if output should be consumed from the `events` or `results` endpoint
+              of the Splunk API. In Splunk terminology, `results` are the output *after* transformation
+              commands has been executed. Consider the following search command:
+
+                    * | head 1000 | stats count by sourcetype
+
+                The output from the command above is no longer the raw `events` because they have been
+                transformed by the search command. Splunk call these transformed events `results`.
+                To receive the computed values, you should choose to use the `results` endpoint.
+                If you want to receive all events that produced this output, choose the `events` endpoint.
+            """,
+            type: {:in, [:events, :results]},
+            default: :events
           ]
         ],
         doc: """

@@ -159,7 +159,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
 
-      assert result_module_opts[:config] == []
+      assert result_module_opts[:config] == [endpoint: :events]
     end
 
     test ":config should be a keyword list" do
@@ -176,6 +176,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                )
 
       assert result_module_opts[:config] == [
+               endpoint: :events,
                base_url: "https://api.splunk.example.com",
                api_token: "super-secret"
              ]

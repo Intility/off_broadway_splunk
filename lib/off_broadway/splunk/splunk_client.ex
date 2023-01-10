@@ -55,8 +55,10 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   @impl true
   def receive_messages(sid, _demand, opts) do
+    {:ok, endpoint} = Keyword.fetch(opts, :endpoint)
+
     client(opts)
-    |> Tesla.get("/services/search/jobs/#{sid}/results")
+    |> Tesla.get("/services/search/jobs/#{sid}/#{Atom.to_string(endpoint)}")
     |> wrap_received_messages(sid)
   end
 
