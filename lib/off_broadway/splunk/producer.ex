@@ -122,6 +122,7 @@ defmodule OffBroadway.Splunk.Producer do
        demand: 0,
        total_events: 0,
        processed_events: 0,
+       processed_requests: 0,
        receive_timer: nil,
        receive_interval: opts[:receive_interval],
        ready: false,
@@ -196,11 +197,11 @@ defmodule OffBroadway.Splunk.Producer do
            state
        )
        when demand > 0 do
-    messages = receive_messages_from_splunk(state, demand)
+    {messages, state} = receive_messages_from_splunk(state, demand)
     new_demand = demand - length(messages)
 
     receive_timer =
-      case {messages, new_demand} do
+      case {messages, state.demand} do
         {[], _} -> schedule_receive_messages(state.receive_interval)
         {_, 0} -> nil
         _ -> schedule_receive_messages(0)
@@ -218,7 +219,7 @@ defmodule OffBroadway.Splunk.Producer do
   defp handle_receive_messages(state), do: {:noreply, [], state}
 
   defp receive_messages_from_splunk(
-         %{sid: sid, processed_events: processed_events, splunk_client: {client, client_opts}},
+         %{sid: sid, splunk_client: {client, client_opts}} = state,
          total_demand
        ) do
     metadata = %{sid: sid, demand: total_demand}
@@ -227,17 +228,27 @@ defmodule OffBroadway.Splunk.Producer do
       Keyword.put(client_opts, :query,
         output_mode: "json",
         count: total_demand,
-        offset: processed_events
+        offset: calculate_offset(state)
       )
 
-    :telemetry.span(
-      [:off_broadway_splunk, :receive_messages],
-      metadata,
-      fn ->
-        messages = client.receive_messages(sid, total_demand, client_opts)
-        {messages, Map.put(metadata, :received, length(messages))}
-      end
-    )
+    {:telemetry.span(
+       [:off_broadway_splunk, :receive_messages],
+       metadata,
+       fn ->
+         messages = client.receive_messages(sid, total_demand, client_opts)
+         {messages, Map.put(metadata, :received, length(messages))}
+       end
+     ), %{state | processed_requests: state.processed_requests + 1}}
+  end
+
+  defp calculate_offset(%{splunk_client: {_, client_opts}, processed_requests: 0}),
+    do: client_opts[:offset]
+
+  defp calculate_offset(%{splunk_client: {_, client_opts}, processed_events: processed_events}) do
+    case {client_opts[:offset], processed_events} do
+      {offset, processed_events} when offset < 0 -> -abs(abs(offset) + processed_events)
+      {offset, processed_events} when offset >= 0 -> offset + processed_events
+    end
   end
 
   defp schedule_receive_messages(interval),

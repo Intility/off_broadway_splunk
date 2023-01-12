@@ -73,6 +73,15 @@ defmodule OffBroadway.Splunk.Options do
             """,
             type: {:in, [:events, :results]},
             default: :events
+          ],
+          offset: [
+            doc: """
+            Initial offset can be used to skip `N` before starting to consume messages. If using
+              `events` endpoint, a negative value can be used to start consuming "from the end",
+              where `-1` is the last available offset.
+            """,
+            type: :integer,
+            default: 0
           ]
         ],
         doc: """
