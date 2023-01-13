@@ -108,8 +108,6 @@ defmodule OffBroadway.Splunk.Producer do
   alias NimbleOptions.ValidationError
   alias OffBroadway.Splunk.Leader
 
-  require Logger
-
   @behaviour Producer
 
   @impl true
@@ -127,7 +125,9 @@ defmodule OffBroadway.Splunk.Producer do
        receive_interval: opts[:receive_interval],
        ready: false,
        sid: opts[:sid],
-       splunk_client: {client, client_opts}
+       splunk_client: {client, client_opts},
+       broadway: opts[:broadway][:name],
+       shutdown_timeout: opts[:shutdown_timeout]
      }}
   end
 
@@ -178,6 +178,15 @@ defmodule OffBroadway.Splunk.Producer do
   def handle_info(:receive_messages, state),
     do: handle_receive_messages(%{state | receive_timer: nil})
 
+  def handle_info(
+        :shutdown_broadway,
+        %{receive_timer: receive_timer, shutdown_timeout: timeout, broadway: broadway} = state
+      ) do
+    receive_timer && Process.cancel_timer(receive_timer)
+    Broadway.stop(broadway, :normal, timeout)
+    {:noreply, [], %{state | receive_timer: nil}}
+  end
+
   def handle_info(_, state), do: {:noreply, [], state}
 
   @impl true
@@ -193,17 +202,24 @@ defmodule OffBroadway.Splunk.Producer do
   end
 
   defp handle_receive_messages(
-         %{receive_timer: nil, ready: true, demand: demand, processed_events: processed_events} =
-           state
+         %{
+           receive_timer: nil,
+           ready: true,
+           demand: demand,
+           splunk_client: {_, client_opts},
+           processed_events: processed_events
+         } = state
        )
        when demand > 0 do
     {messages, state} = receive_messages_from_splunk(state, demand)
     new_demand = demand - length(messages)
+    max_messages = client_opts[:max_messages]
 
     receive_timer =
-      case {messages, state.demand} do
-        {[], _} -> schedule_receive_messages(state.receive_interval)
-        {_, 0} -> nil
+      case {messages, state} do
+        {_, %{demand: 0}} -> schedule_shutdown(0)
+        {[], %{recive_interval: interval}} -> schedule_receive_messages(interval)
+        {_, %{processed_events: ^max_messages}} -> schedule_shutdown(0)
         _ -> schedule_receive_messages(0)
       end
 
@@ -220,25 +236,43 @@ defmodule OffBroadway.Splunk.Producer do
 
   defp receive_messages_from_splunk(
          %{sid: sid, splunk_client: {client, client_opts}} = state,
-         total_demand
+         demand
        ) do
-    metadata = %{sid: sid, demand: total_demand}
+    metadata = %{sid: sid, demand: demand}
+    count = calculate_count(client_opts, demand, state.processed_events)
 
     client_opts =
       Keyword.put(client_opts, :query,
         output_mode: "json",
-        count: total_demand,
+        count: count,
         offset: calculate_offset(state)
       )
 
-    {:telemetry.span(
-       [:off_broadway_splunk, :receive_messages],
-       metadata,
-       fn ->
-         messages = client.receive_messages(sid, total_demand, client_opts)
-         {messages, Map.put(metadata, :received, length(messages))}
-       end
-     ), %{state | processed_requests: state.processed_requests + 1}}
+    case count do
+      0 ->
+        {[], state}
+
+      _ ->
+        {:telemetry.span(
+           [:off_broadway_splunk, :receive_messages],
+           metadata,
+           fn ->
+             messages = client.receive_messages(sid, demand, client_opts)
+             {messages, Map.put(metadata, :received, length(messages))}
+           end
+         ), %{state | processed_requests: state.processed_requests + 1}}
+    end
+  end
+
+  defp calculate_count(client_opts, demand, processed_events) do
+    case client_opts[:max_messages] do
+      nil ->
+        demand
+
+      max_messages ->
+        capacity = max_messages - processed_events
+        min(demand - (demand - capacity), demand)
+    end
   end
 
   defp calculate_offset(%{splunk_client: {_, client_opts}, processed_requests: 0}),
@@ -253,4 +287,7 @@ defmodule OffBroadway.Splunk.Producer do
 
   defp schedule_receive_messages(interval),
     do: Process.send_after(self(), :receive_messages, interval)
+
+  defp schedule_shutdown(interval),
+    do: Process.send_after(self(), :shutdown_broadway, interval)
 end

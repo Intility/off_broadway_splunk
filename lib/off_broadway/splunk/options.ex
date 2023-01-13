@@ -25,6 +25,14 @@ defmodule OffBroadway.Splunk.Options do
         """,
         default: 5000
       ],
+      shutdown_timeout: [
+        type: :timeout,
+        doc: """
+        The duration (in milliseconds) Broadway should wait before timing out when
+        trying to stop the pipeline.
+        """,
+        default: :infinity
+      ],
       on_success: [
         type: :atom,
         doc: """
@@ -82,6 +90,13 @@ defmodule OffBroadway.Splunk.Options do
             """,
             type: :integer,
             default: 0
+          ],
+          max_messages: [
+            doc: """
+            If set to a positive integer, automatically shut down the pipeline after consuming
+              `max_messages` messages from the Splunk API.
+            """,
+            type: :pos_integer
           ]
         ],
         doc: """
