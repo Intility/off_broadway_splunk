@@ -23,7 +23,13 @@ defmodule OffBroadway.Splunk.ProducerTest do
     @behaviour Broadway.Acknowledger
 
     @impl true
-    def init(opts), do: {:ok, opts}
+    def init(opts) do
+      client_opts =
+        Keyword.take(opts, [:message_server, :test_pid])
+        |> Keyword.merge(opts[:config])
+
+      {:ok, client_opts}
+    end
 
     @impl true
     def receive_status(_sid, _opts) do
@@ -159,7 +165,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
 
-      assert result_module_opts[:config] == [endpoint: :events]
+      assert result_module_opts[:config] == [offset: 0, endpoint: :events]
     end
 
     test ":config should be a keyword list" do
@@ -176,6 +182,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                )
 
       assert result_module_opts[:config] == [
+               offset: 0,
                endpoint: :events,
                base_url: "https://api.splunk.example.com",
                api_token: "super-secret"
@@ -222,7 +229,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
     test "keep receiving messages when the queue has more than the demand" do
       {:ok, message_server} = MessageServer.start_link()
-      MessageServer.push_messages(message_server, 1..20)
+      MessageServer.push_messages(message_server, 1..25)
       {:ok, pid} = start_broadway(message_server)
 
       assert_receive {:messages_received, 10}
@@ -231,15 +238,15 @@ defmodule OffBroadway.Splunk.ProducerTest do
         assert_receive {:message_handled, ^msg, _}
       end
 
-      assert_receive {:messages_received, 5}
+      assert_receive {:messages_received, 10}
 
-      for msg <- 11..15 do
+      for msg <- 11..20 do
         assert_receive {:message_handled, ^msg, _}
       end
 
       assert_receive {:messages_received, 5}
 
-      for msg <- 16..20 do
+      for msg <- 21..25 do
         assert_receive {:message_handled, ^msg, _}
       end
 

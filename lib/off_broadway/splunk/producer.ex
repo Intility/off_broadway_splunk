@@ -207,29 +207,23 @@ defmodule OffBroadway.Splunk.Producer do
            ready: true,
            demand: demand,
            splunk_client: {_, client_opts},
-           processed_events: processed_events
+           total_events: total_events
          } = state
        )
        when demand > 0 do
-    {messages, state} = receive_messages_from_splunk(state, demand)
+    {messages, new_state} = receive_messages_from_splunk(state, demand)
     new_demand = demand - length(messages)
     max_messages = client_opts[:max_messages]
 
     receive_timer =
-      case {messages, state} do
-        {_, %{demand: 0}} -> schedule_shutdown(0)
+      case {messages, new_state} do
         {[], %{recive_interval: interval}} -> schedule_receive_messages(interval)
-        {_, %{processed_events: ^max_messages}} -> schedule_shutdown(0)
+        {_, %{processed_events: ^max_messages}} -> schedule_shutdown()
+        {_, %{processed_events: ^total_events}} -> schedule_shutdown()
         _ -> schedule_receive_messages(0)
       end
 
-    {:noreply, messages,
-     %{
-       state
-       | demand: new_demand,
-         processed_events: processed_events + length(messages),
-         receive_timer: receive_timer
-     }}
+    {:noreply, messages, %{new_state | demand: new_demand, receive_timer: receive_timer}}
   end
 
   defp handle_receive_messages(state), do: {:noreply, [], state}
@@ -253,14 +247,22 @@ defmodule OffBroadway.Splunk.Producer do
         {[], state}
 
       _ ->
-        {:telemetry.span(
-           [:off_broadway_splunk, :receive_messages],
-           metadata,
-           fn ->
-             messages = client.receive_messages(sid, demand, client_opts)
-             {messages, Map.put(metadata, :received, length(messages))}
-           end
-         ), %{state | processed_requests: state.processed_requests + 1}}
+        messages =
+          :telemetry.span(
+            [:off_broadway_splunk, :receive_messages],
+            metadata,
+            fn ->
+              messages = client.receive_messages(sid, demand, client_opts)
+              {messages, Map.put(metadata, :received, length(messages))}
+            end
+          )
+
+        {messages,
+         %{
+           state
+           | processed_requests: state.processed_requests + 1,
+             processed_events: state.processed_events + length(messages)
+         }}
     end
   end
 
@@ -288,6 +290,6 @@ defmodule OffBroadway.Splunk.Producer do
   defp schedule_receive_messages(interval),
     do: Process.send_after(self(), :receive_messages, interval)
 
-  defp schedule_shutdown(interval),
-    do: Process.send_after(self(), :shutdown_broadway, interval)
+  defp schedule_shutdown,
+    do: Process.send_after(self(), :shutdown_broadway, 0)
 end
