@@ -91,12 +91,12 @@ defmodule OffBroadway.Splunk.Options do
             type: :integer,
             default: 0
           ],
-          max_messages: [
+          max_events: [
             doc: """
             If set to a positive integer, automatically shut down the pipeline after consuming
-              `max_messages` messages from the Splunk API.
+              `max_events` messages from the Splunk API.
             """,
-            type: :pos_integer
+            type: {:custom, __MODULE__, :type_nil_or_pos_integer, [[{:name, :max_events}]]}
           ]
         ],
         doc: """
@@ -118,4 +118,12 @@ defmodule OffBroadway.Splunk.Options do
 
   def type_non_empty_string(value, [{:name, name}]),
     do: {:error, "expected :#{name} to be a non-empty string, got: #{inspect(value)}"}
+
+  def type_nil_or_pos_integer(nil, [{:name, _}]), do: {:ok, nil}
+
+  def type_nil_or_pos_integer(value, [{:name, _}]) when is_integer(value) and value > 0,
+    do: {:ok, value}
+
+  def type_nil_or_pos_integer(value, [{:name, name}]),
+    do: {:error, "expected :#{name} to be nil or a positive integer, got: #{inspect(value)}"}
 end

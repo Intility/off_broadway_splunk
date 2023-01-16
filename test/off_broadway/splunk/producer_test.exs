@@ -120,7 +120,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       end)
     end
 
-    test "when the sid is nil" do
+    test "when the :sid is nil" do
       assert_raise(
         ArgumentError,
         ~r/expected :sid to be a non-empty string, got: nil/,
@@ -128,7 +128,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       )
     end
 
-    test "when the sid is an empty string" do
+    test "when the :sid is an empty string" do
       assert_raise(
         ArgumentError,
         ~r/expected :sid to be a non-empty string, got: \"\"/,
@@ -136,7 +136,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       )
     end
 
-    test "when the sid is an atom" do
+    test "when the :sid is an atom" do
       assert_raise(
         ArgumentError,
         ~r/expected :sid to be a non-empty string, got: :sid_atom/,
@@ -144,7 +144,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       )
     end
 
-    test "when the sid is a string" do
+    test "when the :sid is a string" do
       assert {[_child_spec],
               [
                 producer: [
@@ -154,6 +154,46 @@ defmodule OffBroadway.Splunk.ProducerTest do
               ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
 
       assert result_module_opts[:sid] == "8CB53D79-587A-43EE-95CC-14256C65EF95"
+    end
+
+    test "when :max_events is nil" do
+      assert {[_child_spec],
+              [
+                producer: [
+                  module: {OffBroadway.Splunk.Producer, result_module_opts},
+                  concurrency: 1
+                ]
+              ]} =
+               prepare_for_start_module_opts(
+                 sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+                 config: [
+                   max_events: nil,
+                   base_url: "https://api.splunk.example.com",
+                   api_token: "super-secret"
+                 ]
+               )
+
+      assert result_module_opts[:config][:max_events] == nil
+    end
+
+    test "when :max_events is a positive integer" do
+      assert {[_child_spec],
+              [
+                producer: [
+                  module: {OffBroadway.Splunk.Producer, result_module_opts},
+                  concurrency: 1
+                ]
+              ]} =
+               prepare_for_start_module_opts(
+                 sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+                 config: [
+                   max_events: 10,
+                   base_url: "https://api.splunk.example.com",
+                   api_token: "super-secret"
+                 ]
+               )
+
+      assert result_module_opts[:config][:max_events] == 10
     end
 
     test ":config is optional with default value []" do

@@ -213,12 +213,12 @@ defmodule OffBroadway.Splunk.Producer do
        when demand > 0 do
     {messages, new_state} = receive_messages_from_splunk(state, demand)
     new_demand = demand - length(messages)
-    max_messages = client_opts[:max_messages]
+    max_events = client_opts[:max_events]
 
     receive_timer =
       case {messages, new_state} do
         {[], %{recive_interval: interval}} -> schedule_receive_messages(interval)
-        {_, %{processed_events: ^max_messages}} -> schedule_shutdown()
+        {_, %{processed_events: ^max_events}} -> schedule_shutdown()
         {_, %{processed_events: ^total_events}} -> schedule_shutdown()
         _ -> schedule_receive_messages(0)
       end
@@ -267,12 +267,12 @@ defmodule OffBroadway.Splunk.Producer do
   end
 
   defp calculate_count(client_opts, demand, processed_events) do
-    case client_opts[:max_messages] do
+    case client_opts[:max_events] do
       nil ->
         demand
 
-      max_messages ->
-        capacity = max_messages - processed_events
+      max_events ->
+        capacity = max_events - processed_events
         min(demand - (demand - capacity), demand)
     end
   end
