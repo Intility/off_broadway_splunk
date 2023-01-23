@@ -45,10 +45,10 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
 
   setup do
     mock(fn
-      %{method: :get, url: "https://splunk.example.com/services/search/jobs/#{@sid1}/events"} ->
+      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid1}/events"} ->
         %Tesla.Env{status: 200, body: %{"results" => [@message1, @message2]}}
 
-      %{method: :get, url: "https://splunk.example.com/services/search/jobs/#{@sid2}/events"} ->
+      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid2}/events"} ->
         %Tesla.Env{
           status: 404,
           body: %{"messages" => [%{"type" => "FATAL", "text" => "Unknown sid."}]}
@@ -65,7 +65,8 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
            config: [
              endpoint: :events,
              base_url: "https://splunk.example.com",
-             api_token: "secret-api-token"
+             api_token: "secret-api-token",
+             api_version: "v2"
            ]
          ]
        }}
@@ -76,7 +77,8 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
               [
                 endpoint: :events,
                 base_url: "https://splunk.example.com",
-                api_token: "secret-api-token"
+                api_token: "secret-api-token",
+                api_version: "v2"
               ]} = SplunkClient.init(base_opts)
     end
 

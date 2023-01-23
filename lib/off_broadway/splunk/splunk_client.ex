@@ -50,15 +50,20 @@ defmodule OffBroadway.Splunk.SplunkClient do
   end
 
   @impl true
-  def receive_status(sid, opts),
-    do: client(opts) |> Tesla.get("/services/search/jobs/#{sid}", query: [output_mode: "json"])
+  def receive_status(sid, opts) do
+    {:ok, version} = Keyword.fetch(opts, :api_version)
+
+    client(opts)
+    |> Tesla.get("/services/search/#{version}/jobs/#{sid}", query: [output_mode: "json"])
+  end
 
   @impl true
   def receive_messages(sid, _demand, opts) do
     {:ok, endpoint} = Keyword.fetch(opts, :endpoint)
+    {:ok, version} = Keyword.fetch(opts, :api_version)
 
     client(opts)
-    |> Tesla.get("/services/search/jobs/#{sid}/#{Atom.to_string(endpoint)}")
+    |> Tesla.get("/services/search/#{version}/jobs/#{sid}/#{Atom.to_string(endpoint)}")
     |> wrap_received_messages(sid)
   end
 

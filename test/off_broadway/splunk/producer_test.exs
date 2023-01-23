@@ -110,14 +110,13 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
   describe "prepare_for_start/2 validation" do
     test "when the sid is not present" do
-      message = """
-      invalid configuration given to OffBroadway.Splunk.Producer.prepare_for_start/2, \
-      required option :sid not found, received options: []\
-      """
-
-      assert_raise(ArgumentError, message, fn ->
-        prepare_for_start_module_opts([])
-      end)
+      assert_raise(
+        ArgumentError,
+        ~r/required :sid option not found, received options: \[\]/,
+        fn ->
+          prepare_for_start_module_opts([])
+        end
+      )
     end
 
     test "when the :sid is nil" do
@@ -196,7 +195,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       assert result_module_opts[:config][:max_events] == 10
     end
 
-    test ":config is optional with default value []" do
+    test ":config is optional with default values" do
       assert {[_child_spec],
               [
                 producer: [
@@ -205,7 +204,20 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
 
-      assert result_module_opts[:config] == [offset: 0, endpoint: :events]
+      assert result_module_opts[:config] == [offset: 0, endpoint: :events, api_version: "v2"]
+    end
+
+    test ":config when :api_version is invalid" do
+      assert_raise(
+        ArgumentError,
+        ~r/invalid value for :api_version option: expected one of \["v1", "v2"\], got: "v3"/,
+        fn ->
+          prepare_for_start_module_opts(
+            sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+            config: [api_version: "v3"]
+          )
+        end
+      )
     end
 
     test ":config should be a keyword list" do
@@ -218,19 +230,24 @@ defmodule OffBroadway.Splunk.ProducerTest do
               ]} =
                prepare_for_start_module_opts(
                  sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
-                 config: [base_url: "https://api.splunk.example.com", api_token: "super-secret"]
+                 config: [
+                   base_url: "https://api.splunk.example.com",
+                   api_token: "super-secret",
+                   api_version: "v1"
+                 ]
                )
 
       assert result_module_opts[:config] == [
                offset: 0,
                endpoint: :events,
                base_url: "https://api.splunk.example.com",
-               api_token: "super-secret"
+               api_token: "super-secret",
+               api_version: "v1"
              ]
 
       assert_raise(
         ArgumentError,
-        ~r/expected :config to be a keyword list, got: :an_atom/,
+        ~r/invalid value for :config option: expected keyword list, got: :an_atom/,
         fn ->
           prepare_for_start_module_opts(
             sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",

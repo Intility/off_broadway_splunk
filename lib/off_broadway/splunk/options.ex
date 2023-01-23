@@ -63,8 +63,16 @@ defmodule OffBroadway.Splunk.Options do
         keys: [
           base_url: [type: :string, doc: "Base URL to Splunk instance."],
           api_token: [
-            type: :string,
-            doc: "API token used to authenticate on the Splunk instance."
+            doc: "API token used to authenticate on the Splunk instance.",
+            type: :string
+          ],
+          api_version: [
+            doc: """
+            Some API endpoints are [available](https://docs.splunk.com/Documentation/Splunk/9.0.3/RESTREF/RESTsearch)
+            in multiple versions. Sets the API version to use (where applicable).
+            """,
+            type: {:in, ["v1", "v2"]},
+            default: "v2"
           ],
           endpoint: [
             doc: """
