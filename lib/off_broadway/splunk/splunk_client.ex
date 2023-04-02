@@ -71,11 +71,12 @@ defmodule OffBroadway.Splunk.SplunkClient do
   def ack(ack_ref, successful, failed) do
     ack_options = :persistent_term.get(ack_ref)
 
-    messages =
-      Enum.filter(successful, &ack?(&1, ack_options, :on_success)) ++
-        Enum.filter(failed, &ack?(&1, ack_options, :on_failure))
-
-    Enum.each(messages, &ack_message(&1, ack_options))
+    Stream.concat(
+      Stream.filter(successful, &ack?(&1, ack_options, :on_success)),
+      Stream.filter(failed, &ack?(&1, ack_options, :on_failure))
+    )
+    |> Stream.each(&ack_message(&1, ack_options))
+    |> Stream.run()
   end
 
   defp ack?(message, ack_options, option) do
@@ -99,13 +100,14 @@ defmodule OffBroadway.Splunk.SplunkClient do
          {:ok, %Tesla.Env{status: 200, body: %{"results" => messages}}},
          ack_ref
        ) do
-    Enum.map(messages, fn message ->
+    Stream.map(messages, fn message ->
       metadata =
         Map.filter(message, fn {key, _val} -> String.starts_with?(key, "_") and key != "_raw" end)
 
       acknowledger = build_acknowledger(message, ack_ref)
       %Message{data: message, metadata: metadata, acknowledger: acknowledger}
     end)
+    |> Enum.to_list()
   end
 
   defp wrap_received_messages(
