@@ -24,3 +24,6 @@ off_broadway_splunk-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Local todo file
+todo.org
