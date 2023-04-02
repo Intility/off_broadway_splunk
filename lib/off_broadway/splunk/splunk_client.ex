@@ -43,6 +43,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
       {Tesla.Middleware.BaseUrl, client_option(opts, :base_url)},
       {Tesla.Middleware.BearerAuth, token: client_option(opts, :api_token)},
       {Tesla.Middleware.Query, client_option(opts, :query)},
+      {Tesla.Middleware.Logger, filter_headers: ["authorization"]},
       {Tesla.Middleware.JSON, engine: Jason}
     ]
 
