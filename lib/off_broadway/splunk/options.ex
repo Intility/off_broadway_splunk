@@ -80,12 +80,12 @@ defmodule OffBroadway.Splunk.Options do
               of the Splunk API. In Splunk terminology, `results` are the output *after* transformation
               commands has been executed. Consider the following search command:
 
-                    * | head 1000 | stats count by sourcetype
+                * | head 1000 | stats count by sourcetype
 
-                The output from the command above is no longer the raw `events` because they have been
-                transformed by the search command. Splunk call these transformed events `results`.
-                To receive the computed values, you should choose to use the `results` endpoint.
-                If you want to receive all events that produced this output, choose the `events` endpoint.
+              The output from the command above is no longer the raw `events` because they have been
+              transformed by the search command. Splunk call these transformed events `results`.
+              To receive the computed values, you should choose to use the `results` endpoint.
+              If you want to receive all events that produced this output, choose the `events` endpoint.
             """,
             type: {:in, [:events, :results]},
             default: :events
@@ -93,8 +93,8 @@ defmodule OffBroadway.Splunk.Options do
           offset: [
             doc: """
             Initial offset can be used to skip `N` before starting to consume messages. If using
-              `events` endpoint, a negative value can be used to start consuming "from the end",
-              where `-1` is the last available offset.
+            `events` endpoint, a negative value can be used to start consuming "from the end",
+            where `-1` is the last available offset.
             """,
             type: :integer,
             default: 0
@@ -102,7 +102,7 @@ defmodule OffBroadway.Splunk.Options do
           max_events: [
             doc: """
             If set to a positive integer, automatically shut down the pipeline after consuming
-              `max_events` messages from the Splunk API.
+            `max_events` messages from the Splunk API.
             """,
             type: {:custom, __MODULE__, :type_nil_or_pos_integer, [[{:name, :max_events}]]}
           ]
