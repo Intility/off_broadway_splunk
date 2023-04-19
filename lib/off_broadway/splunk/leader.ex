@@ -64,7 +64,7 @@ defmodule OffBroadway.Splunk.Leader do
         state = update_state_from_response(state, response)
         receive_interval = calculate_receive_interval(state)
 
-        unless state.is_done do
+        if receive_interval > 0 do
           Logger.info(
             "SID #{sid} is #{Float.ceil(state.done_progress * 100, 2)}% complete, " <>
               "rescheduling update in #{receive_interval} seconds"
