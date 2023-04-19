@@ -100,7 +100,6 @@ defmodule OffBroadway.Splunk.Producer do
           receipt: receipt
         }
         ```
-
   """
 
   use GenStage
@@ -217,7 +216,7 @@ defmodule OffBroadway.Splunk.Producer do
 
     receive_timer =
       case {messages, new_state} do
-        {[], %{recive_interval: interval}} -> schedule_receive_messages(interval)
+        {[], %{receive_interval: interval}} -> schedule_receive_messages(interval)
         {_, %{processed_events: ^max_events}} -> schedule_shutdown()
         {_, %{processed_events: ^total_events}} -> schedule_shutdown()
         _ -> schedule_receive_messages(0)
