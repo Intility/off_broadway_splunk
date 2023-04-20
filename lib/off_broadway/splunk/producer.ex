@@ -54,7 +54,7 @@ defmodule OffBroadway.Splunk.Producer do
         ```
 
     * `[:off_broadway_splunk, :receive_messages, :start]` - Dispatched before receiving
-      messages from Splunk (`c:receive_messages/2`)
+      messages from Splunk.
 
       * measurement: `%{time: System.monotonic_time}`
       * metadata: `%{sid: string, demand: integer}`
