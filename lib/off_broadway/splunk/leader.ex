@@ -18,14 +18,14 @@ defmodule OffBroadway.Splunk.Leader do
     ]
 
     @type t :: %__MODULE__{
-            done_progress: nil | Integer.t() | Float.t(),
-            event_count: Integer.t(),
+            done_progress: nil | integer() | float(),
+            event_count: integer(),
             is_done: boolean(),
             is_zombie: boolean(),
-            broadway: Atom.t(),
+            broadway: atom(),
             published: String.t(),
             sid: String.t(),
-            splunk_client: Tuple.t()
+            splunk_client: tuple()
           }
     use ExConstructor
   end
@@ -139,7 +139,7 @@ defmodule OffBroadway.Splunk.Leader do
   #
   #  seconds until next check = (T * (1 / P)) - T
   #
-  @spec calculate_receive_interval(state :: State.t()) :: Integer.t()
+  @spec calculate_receive_interval(state :: State.t()) :: integer()
   defp calculate_receive_interval(%State{done_progress: 1}), do: 0
 
   defp calculate_receive_interval(%State{published: published, done_progress: progress}) do

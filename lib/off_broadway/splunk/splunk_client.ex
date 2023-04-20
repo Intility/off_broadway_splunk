@@ -134,7 +134,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   defp build_splunk_message_id(_), do: nil
 
-  @spec client_option(Keyword.t(), Atom.t()) :: any
+  @spec client_option(Keyword.t(), atom()) :: any
   defp client_option(opts, :base_url), do: Keyword.get(opts, :base_url, "")
   defp client_option(opts, :api_token), do: Keyword.get(opts, :api_token, "")
   defp client_option(opts, :query), do: Keyword.get(opts, :query, [])
