@@ -102,7 +102,7 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
                assert [] == SplunkClient.receive_messages(@sid2, 10, opts)
              end) =~ """
              [error] Unable to fetch events from Splunk SID #{@sid2}. \
-             Request failed with status code: 404 and reason: [%{\"text\" => \"Unknown sid.\", \"type\" => \"FATAL\"}].
+             Request failed with status code: 404.
              """
     end
   end
