@@ -102,6 +102,8 @@ defmodule OffBroadway.Splunk.SplunkClient do
     response
   end
 
+  defp log_api_messages(response), do: response
+
   defp wrap_received_messages(
          {:ok, %Tesla.Env{status: 200, body: %{"results" => messages}}},
          ack_ref
