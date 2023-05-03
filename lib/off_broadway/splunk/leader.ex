@@ -140,6 +140,7 @@ defmodule OffBroadway.Splunk.Leader do
   #  seconds until next check = (T * (1 / P)) - T
   #
   @spec calculate_receive_interval(state :: State.t()) :: integer()
+  defp calculate_receive_interval(%State{is_done: true}), do: 0
   defp calculate_receive_interval(%State{done_progress: 1}), do: 0
 
   defp calculate_receive_interval(%State{published: published, done_progress: progress}) do
