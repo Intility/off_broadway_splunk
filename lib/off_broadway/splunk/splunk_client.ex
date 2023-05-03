@@ -64,6 +64,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
     client(opts)
     |> Tesla.get("/services/search/#{version}/jobs/#{sid}/#{Atom.to_string(endpoint)}")
+    |> log_api_messages()
     |> wrap_received_messages(sid)
   end
 
@@ -96,6 +97,11 @@ defmodule OffBroadway.Splunk.SplunkClient do
   @impl Acknowledger
   def configure(_ack_ref, ack_data, options), do: {:ok, Map.merge(ack_data, Map.new(options))}
 
+  defp log_api_messages({:ok, %Tesla.Env{body: %{"messages" => messages}}} = response) do
+    log_splunk_message(messages)
+    response
+  end
+
   defp wrap_received_messages(
          {:ok, %Tesla.Env{status: 200, body: %{"results" => messages}}},
          ack_ref
@@ -110,13 +116,10 @@ defmodule OffBroadway.Splunk.SplunkClient do
     |> Enum.to_list()
   end
 
-  defp wrap_received_messages(
-         {:ok, %Tesla.Env{status: status_code, body: %{"messages" => reason}} = _env},
-         ack_ref
-       ) do
+  defp wrap_received_messages({:ok, %Tesla.Env{status: status_code}}, ack_ref) do
     Logger.error(
       "Unable to fetch events from Splunk SID #{ack_ref}. " <>
-        "Request failed with status code: #{status_code} and reason: #{inspect(reason)}."
+        "Request failed with status code: #{status_code}."
     )
 
     []
@@ -126,6 +129,12 @@ defmodule OffBroadway.Splunk.SplunkClient do
     receipt = %{id: build_splunk_message_id(message)}
     {__MODULE__, ack_ref, %{receipt: receipt}}
   end
+
+  defp log_splunk_message(message) when is_list(message),
+    do: Enum.each(message, &log_splunk_message/1)
+
+  defp log_splunk_message(%{"text" => reason, "type" => level}),
+    do: Logger.debug(%{"source" => "splunk", "level" => level, "reason" => reason})
 
   defp extract_message_receipt(%{acknowledger: {_, _, %{receipt: receipt}}}), do: receipt
 
