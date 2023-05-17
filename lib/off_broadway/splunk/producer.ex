@@ -138,13 +138,14 @@ defmodule OffBroadway.Splunk.Producer do
       {:error, error} ->
         raise ArgumentError, format_error(error)
 
+      # Can we move this?
       {:ok, opts} ->
-        :persistent_term.put(opts[:sid], %{
-          sid: opts[:sid],
-          config: opts[:config],
-          on_success: opts[:on_success],
-          on_failure: opts[:on_failure]
-        })
+        # :persistent_term.put(opts[:sid], %{
+        #   sid: opts[:sid],
+        #   config: opts[:config],
+        #   on_success: opts[:on_success],
+        #   on_failure: opts[:on_failure]
+        # })
 
         with_default_opts = put_in(broadway_opts, [:producer, :module], {producer_module, opts})
 
@@ -191,8 +192,8 @@ defmodule OffBroadway.Splunk.Producer do
   @impl true
   # Callback function used by `OffBroadway.Splunk.Leader` to notify that
   # Splunk API is ready to deliver messages.
-  def handle_cast({:receive_messages_ready, total_events: event_count}, state),
-    do: handle_receive_messages(%{state | total_events: event_count, ready: true})
+  def handle_cast({:receive_messages_ready, total_events: event_count, sid: sid}, state),
+    do: handle_receive_messages(%{state | sid: sid, total_events: event_count, ready: true})
 
   @impl Producer
   def prepare_for_draining(%{receive_timer: receive_timer} = state) do

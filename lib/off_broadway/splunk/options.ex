@@ -14,7 +14,7 @@ defmodule OffBroadway.Splunk.Options do
           [[{:name, :sid}]]
         },
         doc: """
-        The SID (Search ID) for the Splunk job we want to consume events from.
+        The SID (Search ID) or Report name for the Splunk job we want to consume events from.
         """
       ],
       receive_interval: [
@@ -89,6 +89,13 @@ defmodule OffBroadway.Splunk.Options do
             """,
             type: {:in, [:events, :results]},
             default: :events
+          ],
+          kind: [
+            doc: """
+            Choose to consume data from either a triggered alert (job) or a saved search (report).
+            """,
+            type: {:in, [:alert, :report]},
+            default: :alert
           ],
           offset: [
             doc: """

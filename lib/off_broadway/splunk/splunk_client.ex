@@ -50,7 +50,14 @@ defmodule OffBroadway.Splunk.SplunkClient do
   end
 
   @impl true
-  def receive_status(sid, opts) do
+  def receive_status(sid, opts), do: Keyword.fetch!(opts, :kind) |> receive_status(sid, opts)
+
+  def receive_status(:report, sid, opts) do
+    client(opts)
+    |> Tesla.get("/services/saved/searches/#{sid}/history", query: [output_mode: "json"])
+  end
+
+  def receive_status(:alert, sid, opts) do
     {:ok, version} = Keyword.fetch(opts, :api_version)
 
     client(opts)
@@ -59,8 +66,13 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   @impl true
   def receive_messages(sid, _demand, opts) do
-    {:ok, endpoint} = Keyword.fetch(opts, :endpoint)
     {:ok, version} = Keyword.fetch(opts, :api_version)
+
+    endpoint =
+      case {Keyword.fetch!(opts, :kind), Keyword.fetch!(opts, :endpoint)} do
+        {:report, _} -> :results
+        {:alert, endpoint} -> endpoint
+      end
 
     client(opts)
     |> Tesla.get("/services/search/#{version}/jobs/#{sid}/#{Atom.to_string(endpoint)}")
@@ -71,6 +83,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
   @impl Acknowledger
   def ack(ack_ref, successful, failed) do
     ack_options = :persistent_term.get(ack_ref)
+    IO.inspect(ack_options)
 
     Stream.concat(
       Stream.filter(successful, &ack?(&1, ack_options, :on_success)),
@@ -120,7 +133,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   defp wrap_received_messages({:ok, %Tesla.Env{status: status_code}}, ack_ref) do
     Logger.error(
-      "Unable to fetch events from Splunk SID #{ack_ref}. " <>
+      "Unable to fetch events from Splunk SID \"#{ack_ref}\". " <>
         "Request failed with status code: #{status_code}."
     )
 

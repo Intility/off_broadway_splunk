@@ -155,6 +155,19 @@ defmodule OffBroadway.Splunk.ProducerTest do
       assert result_module_opts[:sid] == "8CB53D79-587A-43EE-95CC-14256C65EF95"
     end
 
+    test "when :max_events is a negative integer" do
+      assert_raise(
+        ArgumentError,
+        ~r/expected :max_events to be nil or a positive integer, got: -10/,
+        fn ->
+          prepare_for_start_module_opts(
+            sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+            config: [max_events: -10]
+          )
+        end
+      )
+    end
+
     test "when :max_events is nil" do
       assert {[_child_spec],
               [
@@ -204,7 +217,12 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
 
-      assert result_module_opts[:config] == [offset: 0, endpoint: :events, api_version: "v2"]
+      assert result_module_opts[:config] == [
+               offset: 0,
+               kind: :alert,
+               endpoint: :events,
+               api_version: "v2"
+             ]
     end
 
     test ":config when :api_version is invalid" do
@@ -239,6 +257,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
       assert result_module_opts[:config] == [
                offset: 0,
+               kind: :alert,
                endpoint: :events,
                base_url: "https://api.splunk.example.com",
                api_token: "super-secret",

@@ -11,20 +11,28 @@ defmodule OffBroadway.Splunk.Leader do
       :event_count,
       :is_done,
       :is_zombie,
+      :is_scheduled,
+      :on_success,
+      :on_failure,
       :broadway,
       :published,
       :sid,
+      :name,
       :splunk_client
     ]
 
     @type t :: %__MODULE__{
             done_progress: nil | integer() | float(),
-            event_count: integer(),
+            event_count: nil | integer(),
             is_done: boolean(),
             is_zombie: boolean(),
+            is_scheduled: boolean(),
+            on_success: atom(),
+            on_failure: atom(),
             broadway: atom(),
             published: String.t(),
             sid: String.t(),
+            name: String.t(),
             splunk_client: tuple()
           }
     use ExConstructor
@@ -45,6 +53,8 @@ defmodule OffBroadway.Splunk.Leader do
     state = %{
       progress: 0,
       is_done: false,
+      on_success: opts[:on_success],
+      on_failure: opts[:on_failure],
       splunk_client: {client, client_opts}
     }
 
@@ -66,7 +76,7 @@ defmodule OffBroadway.Splunk.Leader do
 
         if receive_interval > 0 do
           Logger.info(
-            "SID #{sid} is #{Float.ceil(state.done_progress * 100, 2)}% complete, " <>
+            "SID \"#{sid}\" is #{Float.ceil(state.done_progress * 100, 2)}% complete, " <>
               "rescheduling update in #{receive_interval} seconds"
           )
         end
@@ -75,24 +85,42 @@ defmodule OffBroadway.Splunk.Leader do
         {:noreply, state}
 
       {:ok, %{status: 404}} ->
-        Logger.error("SID #{sid} does not exist - Shutting down")
+        Logger.error("SID \"#{sid}\" does not exist - Shutting down")
         {:stop, :normal, state}
 
       reason ->
-        Logger.error("SID #{sid} failed with reason #{inspect(reason)} - Shutting down")
+        Logger.error("SID \"#{sid}\" failed with reason #{inspect(reason)} - Shutting down")
         {:stop, :normal, state}
     end
   end
 
   def handle_info(
         :receive_job_status,
-        %State{sid: sid, is_done: true, broadway: broadway} = state
+        %State{sid: sid, is_done: true, broadway: broadway, splunk_client: {_client, client_opts}} =
+          state
       ) do
-    Logger.info("Splunk is done processing SID #{sid} - Ready to consume events")
+    Logger.info("Splunk is done processing SID \"#{sid}\" - Ready to consume events")
+
+    # NOTE In case of :report producers, we're changing the provided SID with the one
+    # received from the Splunk API here. This is because when consuming reports, the
+    # given report name is just a placeholder, while the actual SID for the job changes
+    # for each time the report runs.
+    job_sid =
+      case Keyword.fetch!(client_opts, :kind) do
+        :report -> state.name
+        :alert -> state.sid
+      end
+
+    :persistent_term.put(job_sid, %{
+      sid: job_sid,
+      config: client_opts,
+      on_success: state.on_success,
+      on_failure: state.on_failure
+    })
 
     Broadway.producer_names(broadway)
     |> Enum.random()
-    |> GenStage.cast({:receive_messages_ready, total_events: state.event_count})
+    |> GenStage.cast({:receive_messages_ready, total_events: state.event_count, sid: job_sid})
 
     {:noreply, state}
   end
@@ -115,12 +143,20 @@ defmodule OffBroadway.Splunk.Leader do
   end
 
   @spec update_state_from_response(state :: State.t(), response :: Tesla.Env.t()) :: State.t()
-  defp update_state_from_response(state, %{
-         status: 200,
-         body: %{"entry" => [%{"content" => content} = entry | _rest]}
-       }) do
+  defp update_state_from_response(state, %{status: 200} = response) do
+    %{"content" => content} = entry = latest_entry_from_response(response)
+
     merge_non_nil_state_fields(State.new(entry), state)
     |> merge_non_nil_state_fields(State.new(content))
+  end
+
+  @spec latest_entry_from_response(response :: Tesla.Env.t()) :: map()
+  defp latest_entry_from_response(%{body: %{"entry" => content}}) when is_list(content) do
+    Enum.map(content, fn %{"published" => published} = entry ->
+      {:ok, datetime, _offset} = DateTime.from_iso8601(published)
+      Map.put(entry, "published", datetime)
+    end)
+    |> Enum.max_by(&Map.fetch!(&1, "published"), DateTime)
   end
 
   @spec merge_non_nil_state_fields(state_a :: State.t(), state_b :: State.t()) :: State.t()
