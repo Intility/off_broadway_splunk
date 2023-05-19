@@ -50,23 +50,15 @@ defmodule OffBroadway.Splunk.SplunkClient do
   end
 
   @impl true
-  def receive_status(sid, opts), do: Keyword.fetch!(opts, :kind) |> receive_status(sid, opts)
-
-  def receive_status(:report, sid, opts) do
+  def receive_status(name, opts) do
     client(opts)
-    |> Tesla.get("/services/saved/searches/#{sid}/history", query: [output_mode: "json"])
-  end
-
-  def receive_status(:alert, sid, opts) do
-    {:ok, version} = Keyword.fetch(opts, :api_version)
-
-    client(opts)
-    |> Tesla.get("/services/search/#{version}/jobs/#{sid}", query: [output_mode: "json"])
+    |> Tesla.get("/services/saved/searches/#{name}/history", query: [output_mode: "json"])
   end
 
   @impl true
   def receive_messages(sid, _demand, opts) do
     {:ok, version} = Keyword.fetch(opts, :api_version)
+    {ack_ref, opts} = Keyword.pop(opts, :ack_ref)
 
     endpoint =
       case {Keyword.fetch!(opts, :kind), Keyword.fetch!(opts, :endpoint)} do
@@ -77,13 +69,12 @@ defmodule OffBroadway.Splunk.SplunkClient do
     client(opts)
     |> Tesla.get("/services/search/#{version}/jobs/#{sid}/#{Atom.to_string(endpoint)}")
     |> log_api_messages()
-    |> wrap_received_messages(sid)
+    |> wrap_received_messages(sid, ack_ref)
   end
 
   @impl Acknowledger
   def ack(ack_ref, successful, failed) do
     ack_options = :persistent_term.get(ack_ref)
-    IO.inspect(ack_options)
 
     Stream.concat(
       Stream.filter(successful, &ack?(&1, ack_options, :on_success)),
@@ -99,11 +90,11 @@ defmodule OffBroadway.Splunk.SplunkClient do
   end
 
   @impl true
-  def ack_message(message, %{sid: sid}) do
+  def ack_message(message, ack_options) do
     :telemetry.execute(
       [:off_broadway_splunk, :receive_messages, :ack],
       %{time: System.system_time(), count: 1},
-      %{sid: sid, receipt: extract_message_receipt(message)}
+      %{name: ack_options[:name], receipt: extract_message_receipt(message)}
     )
   end
 
@@ -119,11 +110,13 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   defp wrap_received_messages(
          {:ok, %Tesla.Env{status: 200, body: %{"results" => messages}}},
+         sid,
          ack_ref
        ) do
     Stream.map(messages, fn message ->
       metadata =
         Map.filter(message, fn {key, _val} -> String.starts_with?(key, "_") and key != "_raw" end)
+        |> Map.put("sid", sid)
 
       acknowledger = build_acknowledger(message, ack_ref)
       %Message{data: message, metadata: metadata, acknowledger: acknowledger}
@@ -131,9 +124,9 @@ defmodule OffBroadway.Splunk.SplunkClient do
     |> Enum.to_list()
   end
 
-  defp wrap_received_messages({:ok, %Tesla.Env{status: status_code}}, ack_ref) do
+  defp wrap_received_messages({:ok, %Tesla.Env{status: status_code}}, sid, _ack_ref) do
     Logger.error(
-      "Unable to fetch events from Splunk SID \"#{ack_ref}\". " <>
+      "Unable to fetch events from Splunk SID \"#{sid}\". " <>
         "Request failed with status code: #{status_code}."
     )
 
@@ -153,6 +146,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   defp extract_message_receipt(%{acknowledger: {_, _, %{receipt: receipt}}}), do: receipt
 
+  # TODO Need a better way to build unique replicable message ids
   defp build_splunk_message_id(%{"_si" => si, "_cd" => cd}) when is_list(si),
     do: "#{Enum.join(si, ";")};#{cd}"
 

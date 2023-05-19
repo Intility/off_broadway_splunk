@@ -105,7 +105,9 @@ defmodule OffBroadway.Splunk.Producer do
   use GenStage
   alias Broadway.Producer
   alias NimbleOptions.ValidationError
-  alias OffBroadway.Splunk.Leader
+  # alias OffBroadway.Splunk.Leader
+  alias OffBroadway.Splunk.JobFetcher
+  require Logger
 
   @behaviour Producer
 
@@ -120,10 +122,13 @@ defmodule OffBroadway.Splunk.Producer do
        total_events: 0,
        processed_events: 0,
        processed_requests: 0,
+       processed_jobs: MapSet.new(),
        receive_timer: nil,
        receive_interval: opts[:receive_interval],
        ready: false,
-       sid: opts[:sid],
+       job_queue: [],
+       sid: nil,
+       name: opts[:name],
        splunk_client: {client, client_opts},
        broadway: opts[:broadway][:name],
        shutdown_timeout: opts[:shutdown_timeout]
@@ -138,19 +143,21 @@ defmodule OffBroadway.Splunk.Producer do
       {:error, error} ->
         raise ArgumentError, format_error(error)
 
-      # Can we move this?
       {:ok, opts} ->
-        # :persistent_term.put(opts[:sid], %{
-        #   sid: opts[:sid],
-        #   config: opts[:config],
-        #   on_success: opts[:on_success],
-        #   on_failure: opts[:on_failure]
-        # })
+        ack_ref = broadway_opts[:name]
+
+        :persistent_term.put(ack_ref, %{
+          name: opts[:name],
+          config: opts[:config],
+          on_success: opts[:on_success],
+          on_failure: opts[:on_failure]
+        })
 
         with_default_opts = put_in(broadway_opts, [:producer, :module], {producer_module, opts})
 
         children = [
-          {Leader, Keyword.merge(opts, broadway: with_default_opts[:name])}
+          # {Leader, Keyword.merge(opts, broadway: with_default_opts[:name])}
+          {JobFetcher, Keyword.merge(opts, broadway: with_default_opts[:name])}
         ]
 
         {children, with_default_opts}
@@ -175,6 +182,27 @@ defmodule OffBroadway.Splunk.Producer do
   @impl true
   def handle_info(:receive_messages, %{receive_timer: nil} = state), do: {:noreply, [], state}
 
+  def handle_info(
+        :receive_messages,
+        %{sid: nil, job_queue: job_queue, receive_timer: timer} = state
+      ) do
+    timer && Process.cancel_timer(timer)
+
+    case List.pop_at(job_queue, 0) do
+      {nil, _job_queue} ->
+        {:noreply, [], state}
+
+      {job, job_queue} ->
+        handle_receive_messages(%{
+          state
+          | sid: job.name,
+            job_queue: job_queue,
+            ready: true,
+            receive_timer: nil
+        })
+    end
+  end
+
   def handle_info(:receive_messages, state),
     do: handle_receive_messages(%{state | receive_timer: nil})
 
@@ -190,10 +218,19 @@ defmodule OffBroadway.Splunk.Producer do
   def handle_info(_, state), do: {:noreply, [], state}
 
   @impl true
+  def handle_cast({:receive_jobs, jobs: jobs}, state) do
+    job_queue =
+      (filter_jobs_to_process(jobs, state) ++ state.job_queue)
+      |> Enum.uniq_by(& &1.name)
+      |> Enum.sort_by(& &1.published, {:asc, DateTime})
+
+    {:noreply, [], %{state | receive_timer: schedule_receive_messages(0), job_queue: job_queue}}
+  end
+
   # Callback function used by `OffBroadway.Splunk.Leader` to notify that
   # Splunk API is ready to deliver messages.
-  def handle_cast({:receive_messages_ready, total_events: event_count, sid: sid}, state),
-    do: handle_receive_messages(%{state | sid: sid, total_events: event_count, ready: true})
+  # def handle_cast({:receive_messages_ready, total_events: event_count, sid: sid}, state),
+  #   do: handle_receive_messages(%{state | sid: sid, total_events: event_count, ready: true})
 
   @impl Producer
   def prepare_for_draining(%{receive_timer: receive_timer} = state) do
@@ -223,6 +260,7 @@ defmodule OffBroadway.Splunk.Producer do
         _ -> schedule_receive_messages(0)
       end
 
+    new_state = set_job_to_process(length(messages), new_demand, new_state)
     {:noreply, messages, %{new_state | demand: new_demand, receive_timer: receive_timer}}
   end
 
@@ -236,7 +274,8 @@ defmodule OffBroadway.Splunk.Producer do
     count = calculate_count(client_opts, demand, state.processed_events)
 
     client_opts =
-      Keyword.put(client_opts, :query,
+      Keyword.put(client_opts, :ack_ref, state.broadway)
+      |> Keyword.put(:query,
         output_mode: "json",
         count: count,
         offset: calculate_offset(state)
@@ -264,6 +303,33 @@ defmodule OffBroadway.Splunk.Producer do
              processed_events: state.processed_events + length(messages)
          }}
     end
+  end
+
+  defp set_job_to_process(0, demand, %{processed_jobs: processed_jobs} = state) when demand > 0 do
+    # TODO Maybe use :ets to store queues and processed jobs to share state between all produers?
+    case List.pop_at(state.job_queue, 0) do
+      {nil, []} ->
+        Logger.debug("Done processing all available jobs for #{state.name}")
+        %{state | sid: nil, job_queue: [], ready: false}
+
+      {job, job_queue} ->
+        Logger.debug("Assigning new job (#{job.name}) for #{state.name}")
+
+        %{
+          state
+          | sid: job.name,
+            job_queue: job_queue,
+            processed_jobs: MapSet.put(processed_jobs, state.sid)
+        }
+    end
+  end
+
+  defp set_job_to_process(_count, _demand, state), do: state
+
+  defp filter_jobs_to_process(jobs, state) when is_list(jobs) do
+    Enum.reject(jobs, &(&1.is_zombie or &1.name == state.sid))
+    |> Enum.reject(&MapSet.member?(state.processed_jobs, &1.name))
+    |> Enum.filter(& &1.is_done)
   end
 
   defp calculate_count(client_opts, demand, processed_events) do

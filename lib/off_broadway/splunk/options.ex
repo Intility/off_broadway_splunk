@@ -5,18 +5,19 @@ defmodule OffBroadway.Splunk.Options do
 
   def definition do
     [
-      sid: [
+      name: [
         required: true,
         type: {
           :custom,
           __MODULE__,
           :type_non_empty_string,
-          [[{:name, :sid}]]
+          [[{:name, :name}]]
         },
         doc: """
-        The SID (Search ID) or Report name for the Splunk job we want to consume events from.
+        The report or alert name for the Splunk job we want to consume events from.
         """
       ],
+      # Is this needed?
       receive_interval: [
         type: :non_neg_integer,
         doc: """
@@ -24,6 +25,13 @@ defmodule OffBroadway.Splunk.Options do
         making a request for more messages.
         """,
         default: 5000
+      ],
+      refetch_interval: [
+        type: :non_neg_integer,
+        doc: """
+        The duration (in milliseconds) to wait before fetching new jobs to be processed.
+        """,
+        default: 60_000
       ],
       shutdown_timeout: [
         type: :timeout,
