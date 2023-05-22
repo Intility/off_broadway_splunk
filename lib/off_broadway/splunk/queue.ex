@@ -1,6 +1,8 @@
-defmodule OffBroadway.Splunk.Leader do
+defmodule OffBroadway.Splunk.Queue do
   @moduledoc """
-  TODO Write docs
+  `GenServer` responsible for fetching jobs from the Splunk Web API, and maintain a
+  queue for which jobs that should be processed by the `OffBroadway.Splunk.Producer`.
+  This process is automatically started as part of the `Broadway` supervision tree.
   """
 
   defmodule Job do
@@ -37,7 +39,6 @@ defmodule OffBroadway.Splunk.Leader do
   end
 
   use GenServer
-  require Logger
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 
@@ -78,9 +79,7 @@ defmodule OffBroadway.Splunk.Leader do
     end
   end
 
-  def handle_continue(:maybe_notify_producers, state) do
-    {:noreply, state}
-  end
+  def handle_continue(:maybe_notify_producers, state), do: {:noreply, state}
 
   @impl true
   def handle_call(:enqueue_job, _from, %{current_job: current, completed_jobs: completed} = state) do
@@ -115,7 +114,6 @@ defmodule OffBroadway.Splunk.Leader do
       [:off_broadway_splunk, :receive_jobs],
       metadata,
       fn ->
-        # TODO Handle error messages such as timeout and so on
         {:ok, %{status: 200, body: %{"entry" => jobs}}} =
           env = client.receive_status(name, client_opts)
 
@@ -155,6 +153,7 @@ defmodule OffBroadway.Splunk.Leader do
     end)
   end
 
+  @spec schedule_receive_jobs(interval :: non_neg_integer()) :: reference()
   defp schedule_receive_jobs(interval),
     do: Process.send_after(self(), :receive_jobs, interval)
 end
