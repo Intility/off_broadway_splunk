@@ -45,10 +45,10 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
 
   setup do
     mock(fn
-      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid1}/events"} ->
+      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid1}/results"} ->
         %Tesla.Env{status: 200, body: %{"results" => [@message1, @message2]}}
 
-      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid2}/events"} ->
+      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid2}/results"} ->
         %Tesla.Env{
           status: 404,
           body: %{"messages" => [%{"type" => "FATAL", "text" => "Unknown sid."}]}
@@ -61,9 +61,8 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
       {:ok,
        %{
          base_opts: [
-           sid: @sid1,
+           name: "My fine report",
            config: [
-             endpoint: :events,
              base_url: "https://splunk.example.com",
              api_token: "secret-api-token",
              api_version: "v2"
@@ -75,7 +74,6 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
     test "init/1 returns normalized client options", %{base_opts: base_opts} do
       assert {:ok,
               [
-                endpoint: :events,
                 base_url: "https://splunk.example.com",
                 api_token: "secret-api-token",
                 api_version: "v2"
@@ -92,7 +90,8 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
       assert message2.data == @message2
 
       assert message1.acknowledger ==
-               {SplunkClient, @sid1, %{receipt: %{id: "splunk.example.com;my-index;329:7062435"}}}
+               {SplunkClient, nil,
+                %{receipt: %{id: "splunk.example.com;my-index;329:7062435", sid: @sid1}}}
     end
 
     test "if the request fails, returns an empty list and log the error", %{base_opts: base_opts} do
@@ -101,8 +100,7 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
       assert capture_log(fn ->
                assert [] == SplunkClient.receive_messages(@sid2, 10, opts)
              end) =~ """
-             [error] Unable to fetch events from Splunk SID #{@sid2}. \
-             Request failed with status code: 404.
+             [debug] [{"level", "FATAL"}, {"reason", "Unknown sid."}, {"source", "splunk"}]
              """
     end
   end
@@ -112,9 +110,8 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
       {:ok,
        %{
          base_opts: [
-           sid: @sid1,
+           name: "My fine report",
            config: [
-             endpoint: :events,
              base_url: "https://splunk.example.com",
              api_token: "secret-api-token"
            ],
@@ -128,8 +125,8 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
       self = self()
       {:ok, opts} = SplunkClient.init(base_opts)
 
-      ack_data = %{receipt: %{id: "1"}}
-      fill_persistent_term(opts[:sid], base_opts)
+      ack_data = %{receipt: %{id: "1", sid: @sid1}}
+      fill_persistent_term(opts[:name], base_opts)
 
       capture_log(fn ->
         :ok =
@@ -144,19 +141,19 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
       end)
 
       SplunkClient.ack(
-        opts[:sid],
-        [%Message{acknowledger: {SplunkClient, opts[:sid], ack_data}, data: nil}],
+        opts[:name],
+        [%Message{acknowledger: {SplunkClient, opts[:name], ack_data}, data: nil}],
         []
       )
 
       assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :ack],
-                      %{time: _}, %{sid: _, receipt: _}}
+                      %{time: _}, %{name: _, receipt: _}}
     end
   end
 
   defp fill_persistent_term(ack_ref, base_opts) do
     :persistent_term.put(ack_ref, %{
-      sid: base_opts[:sid],
+      name: base_opts[:name],
       config: base_opts[:config],
       on_success: base_opts[:on_success] || :ack,
       on_failure: base_opts[:on_failure] || :noop
