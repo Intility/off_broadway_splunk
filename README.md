@@ -2,13 +2,13 @@
 
 ![pipeline status](https://github.com/Intility/off_broadway_splunk/actions/workflows/elixir.yaml/badge.svg?event=push)
 
-A Splunk event consumer for [Broadway](https://github.com/dashbitco/broadway).
+A Splunk consumer for [Broadway](https://github.com/dashbitco/broadway).
 
-Broadway producer acts as a consumer for the given Splunk `SID` (Search ID).
-Splunk does not really provide a queue we can consume events from, so we need to fetch events using the
-Splunk Web API. When the Broadway pipeline starts, it will also start a `OffBroadway.Splunk.Leader` process
-which will poll Splunk for job status of the given `SID`. Once Splunk reports that the job is ready to be consumed
-the `OffBroadway.Splunk.Producer` will start fetching events and passing them through the Broadway system.
+Broadway producer acts as a consumer for a given Splunk report or (triggered) alert.
+When the Broadway pipeline starts, a `OffBroadway.Splunk.Queue` process will be started as part of the pipeline
+supervision tree. This process is responsible to query the Splunk Web API for available jobs for the given report or
+alert. Available jobs will be enqueued and the `OffBroadway.Splunk.Producer` process will consume messages
+sequentially (from earliest `published` to latest) and passing them through the Broadway system.
 
 Read the full documentation [here](https://hexdocs.pm/off_broadway_splunk/readme.html).
 
@@ -20,7 +20,7 @@ by adding `off_broadway_splunk` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:off_broadway_splunk, "~> 1.1"}
+    {:off_broadway_splunk, "~> 2.0"}
   ]
 end
 ```
@@ -55,7 +55,7 @@ defmodule MyBroadway do
       producer: [
         module:
           {OffBroadway.Splunk.Producer,
-           sid: "SID-to-consume",
+           name: "My fine report",
            config: [api_token: "override-api-token"]}
       ],
       processors: [

@@ -1,7 +1,7 @@
 defmodule OffBroadway.Splunk.Producer do
   @moduledoc """
   GenStage Producer for a Splunk Event Stream.
-  Broadway producer acts as a consumer for the specified Splunk SID.
+  Broadway producer acts as a consumer for Splunk report or alerts.
 
   ## Producer Options
 
@@ -26,27 +26,27 @@ defmodule OffBroadway.Splunk.Producer do
 
   This library exposes the following telemetry events:
 
-    * `[:off_broadway_splunk, :job_status, :start]` - Dispatched before polling SID status
+    * `[:off_broadway_splunk, :receive_jobs, :start]` - Dispatched before fetching jobs
       from Splunk.
 
       * measurement: `%{time: System.monotonic_time}`
-      * metadata: `%{sid: string, progress: integer}`
+      * metadata: `%{name: string, jobs_count: integer}`
 
-    * `[:off_broadway_splunk, :job_status, :stop]` - Dispatched when polling SID status from Splunk
+    * `[:off_broadway_splunk, :receive_jobs, :stop]` - Dispatched when fetching jobs from Splunk
       is complete.
 
       * measurement: `%{time: native_time}`
-      * metadata: %{sid: string, progress: integer}
+      * metadata: `%{name: string, jobs_count: integer}`
 
-    * `[:off_broadway_splunk, :job_status, :exception]` - Dispatched after a failure while polling
-      SID status from Splunk.
+    * `[:off_broadway_splunk, :receive_jobs, :exception]` - Dispatched after a failure while fetching
+      jobs from Splunk.
 
       * measurement: `%{duration: native_time}`
       * metadata:
 
         ```
         %{
-          sid: string,
+          name: string,
           kind: kind,
           reason: reason,
           stacktrace: stacktrace
@@ -57,7 +57,7 @@ defmodule OffBroadway.Splunk.Producer do
       messages from Splunk.
 
       * measurement: `%{time: System.monotonic_time}`
-      * metadata: `%{sid: string, demand: integer}`
+      * metadata: `%{name: string, sid: string, demand: integer}`
 
     * `[:off_broadway_splunk, :receive_messages, :stop]` - Dispatched after messages have been
       received from Splunk and "wrapped".
@@ -67,6 +67,7 @@ defmodule OffBroadway.Splunk.Producer do
 
         ```
         %{
+          name: string,
           sid: string,
           received: integer,
           demand: integer
@@ -81,6 +82,7 @@ defmodule OffBroadway.Splunk.Producer do
 
         ```
         %{
+          name: string,
           sid: string,
           demand: integer,
           kind: kind,
@@ -96,7 +98,7 @@ defmodule OffBroadway.Splunk.Producer do
 
         ```
         %{
-          sid: string,
+          name: string,
           receipt: receipt
         }
         ```
@@ -105,8 +107,7 @@ defmodule OffBroadway.Splunk.Producer do
   use GenStage
   alias Broadway.Producer
   alias NimbleOptions.ValidationError
-  alias OffBroadway.Splunk.Leader
-  require Logger
+  alias OffBroadway.Splunk.Queue
 
   @behaviour Producer
 
@@ -154,7 +155,7 @@ defmodule OffBroadway.Splunk.Producer do
         with_default_opts = put_in(broadway_opts, [:producer, :module], {producer_module, opts})
 
         children = [
-          {Leader, Keyword.merge(opts, broadway: with_default_opts[:name])}
+          {Queue, Keyword.merge(opts, broadway: with_default_opts[:name])}
         ]
 
         {children, with_default_opts}
@@ -193,7 +194,6 @@ defmodule OffBroadway.Splunk.Producer do
         %{leader: {pid, _}, receive_timer: timer, receive_interval: interval} = state
       )
       when is_pid(pid) do
-    IO.puts("Enqueue new job")
     timer && Process.cancel_timer(timer)
 
     case GenServer.call(pid, :enqueue_job) do
@@ -224,12 +224,6 @@ defmodule OffBroadway.Splunk.Producer do
 
   @impl true
   def handle_call({:ready, sid: sid}, from, state) do
-    Logger.debug(
-      "Producer #{inspect(self())} starting to produce messages for #{inspect(state.name)}"
-    )
-
-    IO.inspect(from)
-
     {:reply, :ok, [],
      %{state | leader: from, sid: sid, ready: true, receive_timer: schedule_receive_messages(0)}}
   end
@@ -254,35 +248,25 @@ defmodule OffBroadway.Splunk.Producer do
     new_demand = demand - length(messages)
     max_events = client_opts[:max_events]
 
-    # Logger.warning(
-    #   "Producer #{inspect(self())} produced #{length(messages)} and has new demand #{new_demand}"
-    # )
-    IO.inspect(length(messages))
-
     receive_timer =
       case {messages, new_state} do
-        # {[], %{receive_interval: interval}} -> schedule_receive_messages(interval)
         {[], %{receive_interval: interval}} -> schedule_enqueue_job(interval)
         {_, %{processed_events: ^max_events}} -> schedule_shutdown()
         {_, %{processed_events: ^total_events}} -> schedule_shutdown()
         _ -> schedule_receive_messages(0)
       end
 
-    # TODO Notify leader to get enqueue new job when completed
-    # new_state = set_job_to_process(length(messages), new_demand, new_state)
     {:noreply, messages, %{new_state | demand: new_demand, receive_timer: receive_timer}}
   end
 
   defp handle_receive_messages(state), do: {:noreply, [], state}
 
   defp receive_messages_from_splunk(
-         %{sid: sid, splunk_client: {client, client_opts}} = state,
+         %{name: name, sid: sid, splunk_client: {client, client_opts}} = state,
          demand
        ) do
-    metadata = %{sid: sid, demand: demand}
+    metadata = %{name: name, sid: sid, demand: demand}
     count = calculate_count(client_opts, demand, state.processed_events)
-
-    Logger.warning("Process #{inspect(self())} has offset #{calculate_offset(state)}")
 
     client_opts =
       Keyword.put(client_opts, :ack_ref, state.broadway)
@@ -337,12 +321,15 @@ defmodule OffBroadway.Splunk.Producer do
     end
   end
 
+  @spec schedule_enqueue_job(interval :: non_neg_integer()) :: reference()
   defp schedule_enqueue_job(interval),
     do: Process.send_after(self(), :enqueue_job, interval)
 
+  @spec schedule_receive_messages(interval :: non_neg_integer()) :: reference()
   defp schedule_receive_messages(interval),
     do: Process.send_after(self(), :receive_messages, interval)
 
+  @spec schedule_shutdown() :: reference()
   defp schedule_shutdown,
     do: Process.send_after(self(), :shutdown_broadway, 0)
 end

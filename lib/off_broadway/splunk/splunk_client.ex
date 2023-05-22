@@ -3,11 +3,11 @@ defmodule OffBroadway.Splunk.SplunkClient do
   Default Splunk client used by `OffBroadway.Splunk.Producer` to receive data from
   Splunk.
   This module implements the `OffBroadway.Splunk.Client` and `Broadway.Acknowledger`
-  behaviours which define callbacks for receiving and acknowledging events.
-  Since Splunk does not have any concept of acknowledging consumed events, we need
-  to keep track of what events that are consumed ourselves (more on that later).
+  behaviours which define callbacks for receiving and acknowledging messages.
+  Since Splunk does not have any concept of acknowledging consumed messages, we need
+  to keep track of what messages that are consumed ourselves (more on that later).
 
-  The default Splunk client uses the Splunk Web API for receiving events and is
+  The default Splunk client uses the Splunk Web API for receiving messages and is
   implemented using the [Tesla](https://hexdocs.pm/tesla/readme.html) library. Tesla
   is a HTTP client abstraction library which let's us easily select from a range of
   HTTP adapters. Please see the Tesla [documentation](https://hexdocs.pm/tesla/readme.html#adapters)

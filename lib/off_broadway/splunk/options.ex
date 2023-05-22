@@ -1,7 +1,5 @@
 defmodule OffBroadway.Splunk.Options do
-  @moduledoc """
-  OffBroadway Splunk option definitions and custom validators.
-  """
+  @moduledoc false
 
   def definition do
     [
@@ -17,7 +15,6 @@ defmodule OffBroadway.Splunk.Options do
         The report or alert name for the Splunk job we want to consume events from.
         """
       ],
-      # Is this needed?
       receive_interval: [
         type: :non_neg_integer,
         doc: """

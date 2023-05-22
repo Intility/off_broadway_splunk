@@ -4,7 +4,7 @@ defmodule OffBroadway.Splunk.Client do
   `OffBroadway.Splunk.Producer`.
 
   This module defines callbacks to normalize options and receive items
-  for a Splunk SID (Search ID).
+  for a Splunk job.
 
   Modules that implements this behaviour should be passed as the
   `:splunk_client` option from `OffBroadway.Splunk.Producer`.
