@@ -79,38 +79,6 @@ defmodule OffBroadway.Splunk.Options do
             type: {:in, ["v1", "v2"]},
             default: "v2"
           ],
-          endpoint: [
-            doc: """
-              Configures if output should be consumed from the `events` or `results` endpoint
-              of the Splunk API. In Splunk terminology, `results` are the output *after* transformation
-              commands has been executed. Consider the following search command:
-
-                * | head 1000 | stats count by sourcetype
-
-              The output from the command above is no longer the raw `events` because they have been
-              transformed by the search command. Splunk call these transformed events `results`.
-              To receive the computed values, you should choose to use the `results` endpoint.
-              If you want to receive all events that produced this output, choose the `events` endpoint.
-            """,
-            type: {:in, [:events, :results]},
-            default: :events
-          ],
-          kind: [
-            doc: """
-            Choose to consume data from either a triggered alert (job) or a saved search (report).
-            """,
-            type: {:in, [:alert, :report]},
-            default: :alert
-          ],
-          offset: [
-            doc: """
-            Initial offset can be used to skip `N` before starting to consume messages. If using
-            `events` endpoint, a negative value can be used to start consuming "from the end",
-            where `-1` is the last available offset.
-            """,
-            type: :integer,
-            default: 0
-          ],
           max_events: [
             doc: """
             If set to a positive integer, automatically shut down the pipeline after consuming
