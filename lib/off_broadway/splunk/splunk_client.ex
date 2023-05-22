@@ -112,7 +112,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
         Map.filter(message, fn {key, _val} -> String.starts_with?(key, "_") and key != "_raw" end)
         |> Map.put("sid", sid)
 
-      acknowledger = build_acknowledger(message, ack_ref)
+      acknowledger = build_acknowledger(message, sid, ack_ref)
       %Message{data: message, metadata: metadata, acknowledger: acknowledger}
     end)
     |> Enum.to_list()
@@ -127,8 +127,8 @@ defmodule OffBroadway.Splunk.SplunkClient do
     []
   end
 
-  defp build_acknowledger(message, ack_ref) do
-    receipt = %{id: build_splunk_message_id(message)}
+  defp build_acknowledger(message, sid, ack_ref) do
+    receipt = %{id: build_splunk_message_id(message), sid: sid}
     {__MODULE__, ack_ref, %{receipt: receipt}}
   end
 
@@ -140,7 +140,6 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   defp extract_message_receipt(%{acknowledger: {_, _, %{receipt: receipt}}}), do: receipt
 
-  # TODO Need a better way to build unique replicable message ids
   defp build_splunk_message_id(%{"_si" => si, "_cd" => cd}) when is_list(si),
     do: "#{Enum.join(si, ";")};#{cd}"
 
