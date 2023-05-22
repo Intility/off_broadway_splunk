@@ -60,14 +60,8 @@ defmodule OffBroadway.Splunk.SplunkClient do
     {:ok, version} = Keyword.fetch(opts, :api_version)
     {ack_ref, opts} = Keyword.pop(opts, :ack_ref)
 
-    endpoint =
-      case {Keyword.fetch!(opts, :kind), Keyword.fetch!(opts, :endpoint)} do
-        {:report, _} -> :results
-        {:alert, endpoint} -> endpoint
-      end
-
     client(opts)
-    |> Tesla.get("/services/search/#{version}/jobs/#{sid}/#{Atom.to_string(endpoint)}")
+    |> Tesla.get("/services/search/#{version}/jobs/#{sid}/results")
     |> log_api_messages()
     |> wrap_received_messages(sid, ack_ref)
   end
