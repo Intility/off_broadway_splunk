@@ -39,13 +39,12 @@ defmodule OffBroadway.Splunk.ProducerTest do
          body: %{
            "entry" => [
              %{
+               "name" => "8CB53D79-587A-43EE-95CC-14256C65EF95",
                "published" => "2022-06-28T15:00:02.000+02:00",
                "content" => %{
-                 "doneProgress" => 1,
-                 "eventCount" => 200,
                  "isDone" => true,
-                 "isZombie" => false,
-                 "sid" => "8CB53D79-587A-43EE-95CC-14256C65EF95"
+                 "isScheduled" => true,
+                 "isZombie" => false
                }
              }
            ]
@@ -109,50 +108,50 @@ defmodule OffBroadway.Splunk.ProducerTest do
   end
 
   describe "prepare_for_start/2 validation" do
-    test "when the sid is not present" do
+    test "when :name is not present" do
       assert_raise(
         ArgumentError,
-        ~r/required :sid option not found, received options: \[\]/,
+        ~r/required :name option not found, received options: \[\]/,
         fn ->
           prepare_for_start_module_opts([])
         end
       )
     end
 
-    test "when the :sid is nil" do
+    test "when :name is nil" do
       assert_raise(
         ArgumentError,
-        ~r/expected :sid to be a non-empty string, got: nil/,
-        fn -> prepare_for_start_module_opts(sid: nil) end
+        ~r/expected :name to be a non-empty string, got: nil/,
+        fn -> prepare_for_start_module_opts(name: nil) end
       )
     end
 
-    test "when the :sid is an empty string" do
+    test "when :name is an empty string" do
       assert_raise(
         ArgumentError,
-        ~r/expected :sid to be a non-empty string, got: \"\"/,
-        fn -> prepare_for_start_module_opts(sid: "") end
+        ~r/expected :name to be a non-empty string, got: \"\"/,
+        fn -> prepare_for_start_module_opts(name: "") end
       )
     end
 
-    test "when the :sid is an atom" do
+    test "when :name is an atom" do
       assert_raise(
         ArgumentError,
-        ~r/expected :sid to be a non-empty string, got: :sid_atom/,
-        fn -> prepare_for_start_module_opts(sid: :sid_atom) end
+        ~r/expected :name to be a non-empty string, got: :name_atom/,
+        fn -> prepare_for_start_module_opts(name: :name_atom) end
       )
     end
 
-    test "when the :sid is a string" do
+    test "when :name is a string" do
       assert {[_child_spec],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
                   concurrency: 1
                 ]
-              ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
+              ]} = prepare_for_start_module_opts(name: "My fine report")
 
-      assert result_module_opts[:sid] == "8CB53D79-587A-43EE-95CC-14256C65EF95"
+      assert result_module_opts[:name] == "My fine report"
     end
 
     test "when :max_events is a negative integer" do
@@ -161,7 +160,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
         ~r/expected :max_events to be nil or a positive integer, got: -10/,
         fn ->
           prepare_for_start_module_opts(
-            sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+            name: "My fine report",
             config: [max_events: -10]
           )
         end
@@ -177,7 +176,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} =
                prepare_for_start_module_opts(
-                 sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+                 name: "My fine report",
                  config: [
                    max_events: nil,
                    base_url: "https://api.splunk.example.com",
@@ -197,7 +196,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} =
                prepare_for_start_module_opts(
-                 sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+                 name: "My fine report",
                  config: [
                    max_events: 10,
                    base_url: "https://api.splunk.example.com",
@@ -215,14 +214,9 @@ defmodule OffBroadway.Splunk.ProducerTest do
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
                   concurrency: 1
                 ]
-              ]} = prepare_for_start_module_opts(sid: "8CB53D79-587A-43EE-95CC-14256C65EF95")
+              ]} = prepare_for_start_module_opts(name: "My fine report")
 
-      assert result_module_opts[:config] == [
-               offset: 0,
-               kind: :alert,
-               endpoint: :events,
-               api_version: "v2"
-             ]
+      assert result_module_opts[:config] == [api_version: "v2"]
     end
 
     test ":config when :api_version is invalid" do
@@ -231,7 +225,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
         ~r/invalid value for :api_version option: expected one of \["v1", "v2"\], got: "v3"/,
         fn ->
           prepare_for_start_module_opts(
-            sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+            name: "My fine report",
             config: [api_version: "v3"]
           )
         end
@@ -247,7 +241,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
                 ]
               ]} =
                prepare_for_start_module_opts(
-                 sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+                 name: "My fine report",
                  config: [
                    base_url: "https://api.splunk.example.com",
                    api_token: "super-secret",
@@ -256,9 +250,6 @@ defmodule OffBroadway.Splunk.ProducerTest do
                )
 
       assert result_module_opts[:config] == [
-               offset: 0,
-               kind: :alert,
-               endpoint: :events,
                base_url: "https://api.splunk.example.com",
                api_token: "super-secret",
                api_version: "v1"
@@ -269,7 +260,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
         ~r/invalid value for :config option: expected keyword list, got: :an_atom/,
         fn ->
           prepare_for_start_module_opts(
-            sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+            name: "My fine report",
             config: :an_atom
           )
         end
@@ -430,7 +421,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       Forwarder,
       build_broadway_opts(broadway_name, opts,
         splunk_client: FakeSplunkClient,
-        sid: "8CB53D79-587A-43EE-95CC-14256C65EF95",
+        name: "My fine report",
         config: [
           base_url: "https://api.splunk.example.com",
           api_token: "secret-token"

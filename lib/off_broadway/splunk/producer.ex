@@ -126,7 +126,7 @@ defmodule OffBroadway.Splunk.Producer do
        receive_interval: opts[:receive_interval],
        ready: false,
        sid: nil,
-       leader: nil,
+       queue: nil,
        name: opts[:name],
        splunk_client: {client, client_opts},
        broadway: opts[:broadway][:name],
@@ -191,7 +191,7 @@ defmodule OffBroadway.Splunk.Producer do
 
   def handle_info(
         :enqueue_job,
-        %{leader: {pid, _}, receive_timer: timer, receive_interval: interval} = state
+        %{queue: {pid, _}, receive_timer: timer, receive_interval: interval} = state
       )
       when is_pid(pid) do
     timer && Process.cancel_timer(timer)
@@ -225,7 +225,7 @@ defmodule OffBroadway.Splunk.Producer do
   @impl true
   def handle_call({:ready, sid: sid}, from, state) do
     {:reply, :ok, [],
-     %{state | leader: from, sid: sid, ready: true, receive_timer: schedule_receive_messages(0)}}
+     %{state | queue: from, sid: sid, ready: true, receive_timer: schedule_receive_messages(0)}}
   end
 
   @impl Producer
