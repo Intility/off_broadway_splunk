@@ -119,7 +119,6 @@ defmodule OffBroadway.Splunk.Producer do
     {:producer,
      %{
        demand: 0,
-       total_events: 0,
        processed_events: 0,
        processed_requests: 0,
        receive_timer: nil,
@@ -239,8 +238,7 @@ defmodule OffBroadway.Splunk.Producer do
            receive_timer: nil,
            ready: true,
            demand: demand,
-           splunk_client: {_, client_opts},
-           total_events: total_events
+           splunk_client: {_, client_opts}
          } = state
        )
        when demand > 0 do
@@ -252,7 +250,6 @@ defmodule OffBroadway.Splunk.Producer do
       case {messages, new_state} do
         {[], %{receive_interval: interval}} -> schedule_enqueue_job(interval)
         {_, %{processed_events: ^max_events}} -> schedule_shutdown()
-        {_, %{processed_events: ^total_events}} -> schedule_shutdown()
         _ -> schedule_receive_messages(0)
       end
 
@@ -311,15 +308,8 @@ defmodule OffBroadway.Splunk.Producer do
     end
   end
 
-  defp calculate_offset(%{splunk_client: {_, client_opts}, processed_requests: 0}),
-    do: client_opts[:offset]
-
-  defp calculate_offset(%{splunk_client: {_, client_opts}, processed_events: processed_events}) do
-    case {client_opts[:offset], processed_events} do
-      {offset, processed_events} when offset < 0 -> -abs(abs(offset) + processed_events)
-      {offset, processed_events} when offset >= 0 -> offset + processed_events
-    end
-  end
+  defp calculate_offset(%{processed_requests: 0}), do: 0
+  defp calculate_offset(%{processed_events: processed_events}), do: processed_events
 
   @spec schedule_enqueue_job(interval :: non_neg_integer()) :: reference()
   defp schedule_enqueue_job(interval),
