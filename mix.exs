@@ -51,6 +51,7 @@ defmodule OffBroadway.Splunk.MixProject do
   defp deps do
     [
       {:broadway, "~> 1.0"},
+      {:credo, "~> 1.7", only: :dev},
       {:decimal, "~> 2.0"},
       {:excoveralls, "~> 0.15.0", only: :test},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
