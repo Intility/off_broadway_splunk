@@ -197,7 +197,7 @@ defmodule OffBroadway.Splunk.Producer do
 
     case GenServer.call(pid, :enqueue_job) do
       {:ok, nil} ->
-        schedule_enqueue_job(interval)
+        handle_receive_messages(%{state | sid: nil, receive_timer: schedule_enqueue_job(interval)})
 
       {:ok, sid} ->
         handle_receive_messages(%{
