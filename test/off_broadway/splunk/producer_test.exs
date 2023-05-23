@@ -207,6 +207,18 @@ defmodule OffBroadway.Splunk.ProducerTest do
       assert result_module_opts[:config][:max_events] == 10
     end
 
+    test ":only_latest is default false" do
+      assert {[_child_spec],
+              [
+                producer: [
+                  module: {OffBroadway.Splunk.Producer, result_module_opts},
+                  concurrency: 1
+                ]
+              ]} = prepare_for_start_module_opts(name: "My fine report")
+
+      assert result_module_opts[:only_latest] == false
+    end
+
     test ":config is optional with default values" do
       assert {[_child_spec],
               [

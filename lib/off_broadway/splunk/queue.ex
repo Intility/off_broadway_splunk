@@ -54,6 +54,7 @@ defmodule OffBroadway.Splunk.Queue do
       queue: :queue.new(),
       completed_jobs: MapSet.new(),
       refetch_timer: nil,
+      only_latest: opts[:only_latest],
       refetch_interval: opts[:refetch_interval],
       splunk_client: {client, client_opts}
     }
@@ -129,6 +130,7 @@ defmodule OffBroadway.Splunk.Queue do
       |> Enum.reject(& &1.is_zombie)
       |> Enum.filter(& &1.is_done)
       |> Enum.sort_by(& &1.published, {:asc, DateTime})
+      |> only_latest?(state.only_latest)
 
     :queue.fold(
       fn job, acc ->
@@ -144,6 +146,10 @@ defmodule OffBroadway.Splunk.Queue do
       :queue.from_list(jobs)
     )
   end
+
+  @spec only_latest?(list :: list(), flag :: boolean()) :: list()
+  defp only_latest?(list, true), do: Enum.take(list, -1)
+  defp only_latest?(list, false), do: list
 
   @spec merge_non_nil_fields(map_a :: map(), map_b :: map()) :: map()
   defp merge_non_nil_fields(map_a, map_b) do
