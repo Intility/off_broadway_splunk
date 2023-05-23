@@ -2,7 +2,7 @@
 
 ## 2.0.0 - Upgrade version
 
-_Unreleased_
+_Released 2023-05-23_
 
 This almost a complete rewrite and is **uncompatible** with the `v1.x` branch.
 Instead of targeting a specific `SID` to produce messages for, this release is focused around producing messages
