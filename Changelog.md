@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.1 - Minor fixes
+
+_Unreleased_
+
+Options
+
+- Add new option `only_latest` to only consume the most recent job for given report or alert.
+
 ## 2.0.0 - Upgrade version
 
 _Released 2023-05-23_
