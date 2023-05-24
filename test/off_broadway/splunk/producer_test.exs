@@ -143,7 +143,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     test "when :name is a string" do
-      assert {[_child_spec],
+      assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
@@ -168,7 +168,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     test "when :max_events is nil" do
-      assert {[_child_spec],
+      assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
@@ -188,7 +188,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     test "when :max_events is a positive integer" do
-      assert {[_child_spec],
+      assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
@@ -208,7 +208,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     test ":only_latest is default false" do
-      assert {[_child_spec],
+      assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
@@ -220,7 +220,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     test ":config is optional with default values" do
-      assert {[_child_spec],
+      assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
@@ -245,7 +245,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     test ":config should be a keyword list" do
-      assert {[_child_spec],
+      assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},

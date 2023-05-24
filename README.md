@@ -5,10 +5,9 @@
 A Splunk consumer for [Broadway](https://github.com/dashbitco/broadway).
 
 Broadway producer acts as a consumer for a given Splunk report or (triggered) alert.
-When the Broadway pipeline starts, a `OffBroadway.Splunk.Queue` process will be started as part of the pipeline
-supervision tree. This process is responsible to query the Splunk Web API for available jobs for the given report or
-alert. Available jobs will be enqueued and the `OffBroadway.Splunk.Producer` process will consume messages
-sequentially (from earliest `published` to latest) and passing them through the Broadway system.
+The `OffBroadway.Splunk.Producer` process will query Splunk for available jobs for the given
+report and keep them in a queue. Jobs wil then be processed sequentially (from earliest to latest)
+and passed through the Broadway pipeline.
 
 Read the full documentation [here](https://hexdocs.pm/off_broadway_splunk/readme.html).
 
