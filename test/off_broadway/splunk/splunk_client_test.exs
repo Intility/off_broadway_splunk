@@ -1,5 +1,5 @@
 defmodule OffBroadway.Splunk.SplunkClientTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   alias OffBroadway.Splunk.SplunkClient
   alias Broadway.Message

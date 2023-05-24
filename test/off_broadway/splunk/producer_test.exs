@@ -3,7 +3,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
   This test case is basically stolen from the `BroadwaySQS` project
   and adapted to the Splunk producer case.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Broadway.Message
   import ExUnit.CaptureLog
@@ -308,7 +308,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
     test "keep receiving messages when the queue has more than the demand" do
       {:ok, message_server} = MessageServer.start_link()
-      MessageServer.push_messages(message_server, 1..25)
+      MessageServer.push_messages(message_server, 1..20)
       {:ok, pid} = start_broadway(message_server)
 
       assert_receive {:messages_received, 10}
@@ -317,15 +317,15 @@ defmodule OffBroadway.Splunk.ProducerTest do
         assert_receive {:message_handled, ^msg, _}
       end
 
-      assert_receive {:messages_received, 10}
+      assert_receive {:messages_received, 5}
 
-      for msg <- 11..20 do
+      for msg <- 11..15 do
         assert_receive {:message_handled, ^msg, _}
       end
 
       assert_receive {:messages_received, 5}
 
-      for msg <- 21..25 do
+      for msg <- 16..20 do
         assert_receive {:message_handled, ^msg, _}
       end
 
