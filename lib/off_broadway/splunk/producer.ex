@@ -47,7 +47,6 @@ defmodule OffBroadway.Splunk.Producer do
         ```
         %{
           name: string,
-          kind: kind,
           reason: reason,
           stacktrace: stacktrace
         }
@@ -85,7 +84,6 @@ defmodule OffBroadway.Splunk.Producer do
           name: string,
           sid: string,
           demand: integer,
-          kind: kind,
           reason: reason,
           stacktrace: stacktrace
         }
