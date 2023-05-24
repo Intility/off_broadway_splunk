@@ -117,6 +117,7 @@ defmodule OffBroadway.Splunk.Producer do
     {:producer,
      %{
        demand: 0,
+       drain: false,
        processed_events: 0,
        processed_requests: 0,
        receive_timer: nil,
@@ -211,7 +212,7 @@ defmodule OffBroadway.Splunk.Producer do
   def prepare_for_draining(%{receive_timer: receive_timer, refetch_timer: refetch_timer} = state) do
     receive_timer && Process.cancel_timer(receive_timer)
     refetch_timer && Process.cancel_timer(refetch_timer)
-    {:noreply, [], %{state | receive_timer: nil, refetch_timer: nil}}
+    {:noreply, [], %{state | drain: true, receive_timer: nil, refetch_timer: nil}}
   end
 
   @spec handle_receive_jobs(state :: map()) :: {:noreply, [], new_state :: map()}
@@ -263,6 +264,8 @@ defmodule OffBroadway.Splunk.Producer do
          }}
     end
   end
+
+  defp handle_receive_messages(%{drain: true} = state), do: {:noreply, [], state}
 
   defp handle_receive_messages(
          %{
