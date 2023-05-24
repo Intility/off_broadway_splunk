@@ -47,7 +47,6 @@ defmodule OffBroadway.Splunk.Producer do
         ```
         %{
           name: string,
-          kind: kind,
           reason: reason,
           stacktrace: stacktrace
         }
@@ -85,7 +84,6 @@ defmodule OffBroadway.Splunk.Producer do
           name: string,
           sid: string,
           demand: integer,
-          kind: kind,
           reason: reason,
           stacktrace: stacktrace
         }
@@ -107,7 +105,7 @@ defmodule OffBroadway.Splunk.Producer do
   use GenStage
   alias Broadway.Producer
   alias NimbleOptions.ValidationError
-  alias OffBroadway.Splunk.Queue
+  alias OffBroadway.Splunk.Job
 
   @behaviour Producer
 
@@ -119,16 +117,20 @@ defmodule OffBroadway.Splunk.Producer do
     {:producer,
      %{
        demand: 0,
+       drain: false,
        processed_events: 0,
        processed_requests: 0,
        receive_timer: nil,
        receive_interval: opts[:receive_interval],
-       ready: false,
-       sid: nil,
-       queue: nil,
+       refetch_timer: nil,
+       refetch_interval: opts[:refetch_interval],
        name: opts[:name],
+       current_job: nil,
+       completed_jobs: MapSet.new(),
+       queue: :queue.new(),
        splunk_client: {client, client_opts},
        broadway: opts[:broadway][:name],
+       only_latest: opts[:only_latest],
        shutdown_timeout: opts[:shutdown_timeout]
      }}
   end
@@ -153,11 +155,7 @@ defmodule OffBroadway.Splunk.Producer do
 
         with_default_opts = put_in(broadway_opts, [:producer, :module], {producer_module, opts})
 
-        children = [
-          {Queue, Keyword.merge(opts, broadway: with_default_opts[:name])}
-        ]
-
-        {children, with_default_opts}
+        {[], with_default_opts}
     end
   end
 
@@ -172,71 +170,128 @@ defmodule OffBroadway.Splunk.Producer do
   end
 
   @impl true
-  def handle_demand(incoming_demand, %{demand: demand} = state) do
-    handle_receive_messages(%{state | demand: demand + incoming_demand})
+  def handle_demand(incoming_demand, %{demand: demand, receive_timer: timer} = state) do
+    timer && Process.cancel_timer(timer)
+    handle_receive_messages(%{state | demand: demand + incoming_demand, receive_timer: nil})
   end
 
   @impl true
-  def handle_info(:receive_messages, %{receive_timer: nil} = state), do: {:noreply, [], state}
+  def handle_info(:receive_jobs, %{refetch_timer: timer} = state) do
+    timer && Process.cancel_timer(timer)
+    handle_receive_jobs(%{state | refetch_timer: nil})
+  end
 
-  def handle_info(:receive_messages, %{sid: sid, receive_timer: timer} = state)
-      when not is_nil(sid) do
+  def handle_info(:receive_messages, %{receive_timer: timer} = state) do
     timer && Process.cancel_timer(timer)
     handle_receive_messages(%{state | receive_timer: nil})
   end
 
-  def handle_info(:receive_messages, state),
-    do: handle_receive_messages(%{state | receive_timer: nil})
-
-  def handle_info(
-        :enqueue_job,
-        %{queue: {pid, _}, receive_timer: timer, receive_interval: interval} = state
-      )
-      when is_pid(pid) do
+  def handle_info(:next_job, %{receive_timer: timer} = state) do
     timer && Process.cancel_timer(timer)
-
-    case GenServer.call(pid, :enqueue_job) do
-      {:ok, nil} ->
-        handle_receive_messages(%{state | sid: nil, receive_timer: schedule_enqueue_job(interval)})
-
-      {:ok, sid} ->
-        handle_receive_messages(%{
-          state
-          | sid: sid,
-            receive_timer: nil,
-            processed_events: 0,
-            processed_requests: 0
-        })
-    end
+    handle_next_job(%{state | receive_timer: nil})
   end
 
   def handle_info(
         :shutdown_broadway,
-        %{receive_timer: receive_timer, shutdown_timeout: timeout, broadway: broadway} = state
+        %{
+          receive_timer: receive_timer,
+          refetch_timer: refetch_timer,
+          shutdown_timeout: timeout,
+          broadway: broadway
+        } = state
       ) do
     receive_timer && Process.cancel_timer(receive_timer)
+    refetch_timer && Process.cancel_timer(refetch_timer)
     Broadway.stop(broadway, :normal, timeout)
     {:noreply, [], %{state | receive_timer: nil}}
   end
 
   def handle_info(_, state), do: {:noreply, [], state}
 
-  @impl true
-  def handle_call({:ready, sid: sid}, from, state) do
-    {:reply, :ok, [],
-     %{state | queue: from, sid: sid, ready: true, receive_timer: schedule_receive_messages(0)}}
+  @impl Producer
+  def prepare_for_draining(%{receive_timer: receive_timer, refetch_timer: refetch_timer} = state) do
+    receive_timer && Process.cancel_timer(receive_timer)
+    refetch_timer && Process.cancel_timer(refetch_timer)
+    {:noreply, [], %{state | drain: true, receive_timer: nil, refetch_timer: nil}}
   end
 
-  @impl Producer
-  def prepare_for_draining(%{receive_timer: receive_timer} = state) do
-    receive_timer && Process.cancel_timer(receive_timer)
-    {:noreply, [], %{state | receive_timer: nil}}
+  @spec handle_receive_jobs(state :: map()) :: {:noreply, [], new_state :: map()}
+  defp handle_receive_jobs(%{refetch_timer: nil} = state) do
+    new_queue =
+      receive_jobs_from_splunk(state)
+      |> update_queue_from_response(state)
+
+    case {new_queue, state} do
+      {{[], []}, %{current_job: nil}} ->
+        {:noreply, [],
+         %{state | queue: new_queue, refetch_timer: schedule_receive_jobs(state.refetch_interval)}}
+
+      {_queue, %{current_job: nil}} ->
+        {:noreply, [],
+         %{
+           state
+           | queue: new_queue,
+             receive_timer: schedule_next_job(0),
+             refetch_timer: schedule_receive_jobs(state.refetch_interval)
+         }}
+    end
+  end
+
+  defp handle_next_job(
+         %{current_job: current, completed_jobs: completed, receive_timer: nil} = state
+       ) do
+    case :queue.out(state.queue) do
+      {{:value, job}, new_queue} ->
+        {:noreply, [],
+         %{
+           state
+           | current_job: job,
+             queue: new_queue,
+             processed_events: 0,
+             processed_requests: 0,
+             completed_jobs: MapSet.put(completed, current),
+             receive_timer: schedule_receive_messages(0)
+         }}
+
+      {:empty, new_queue} ->
+        {:noreply, [],
+         %{
+           state
+           | current_job: nil,
+             queue: new_queue,
+             completed_jobs: MapSet.put(completed, current),
+             refetch_timer: schedule_receive_jobs(state.refetch_interval)
+         }}
+    end
+  end
+
+  defp handle_receive_messages(%{drain: true} = state), do: {:noreply, [], state}
+
+  defp handle_receive_messages(
+         %{
+           current_job: nil,
+           refetch_timer: nil,
+           receive_timer: nil,
+           receive_interval: interval,
+           queue: {[], []}
+         } = state
+       ) do
+    with response <- receive_jobs_from_splunk(state),
+         queue <- update_queue_from_response(response, state),
+         {{:value, job}, new_queue} <- :queue.out(queue) do
+      {:noreply, [],
+       %{state | current_job: job, queue: new_queue, receive_timer: schedule_receive_messages(0)}}
+    else
+      {:empty, new_queue} ->
+        {:noreply, [],
+         %{state | queue: new_queue, receive_timer: schedule_receive_messages(interval)}}
+    end
   end
 
   defp handle_receive_messages(
          %{
            receive_timer: nil,
-           ready: true,
+           current_job: %Job{},
            demand: demand,
            splunk_client: {_, client_opts}
          } = state
@@ -248,7 +303,7 @@ defmodule OffBroadway.Splunk.Producer do
 
     receive_timer =
       case {messages, new_state} do
-        {[], %{receive_interval: interval}} -> schedule_enqueue_job(interval)
+        {[], %{receive_interval: interval}} -> schedule_next_job(interval)
         {_, %{processed_events: ^max_events}} -> schedule_shutdown()
         _ -> schedule_receive_messages(0)
       end
@@ -256,13 +311,36 @@ defmodule OffBroadway.Splunk.Producer do
     {:noreply, messages, %{new_state | demand: new_demand, receive_timer: receive_timer}}
   end
 
-  defp handle_receive_messages(state), do: {:noreply, [], state}
+  defp handle_receive_messages(%{receive_timer: nil} = state) do
+    {:noreply, [], %{state | receive_timer: schedule_receive_messages(state.receive_interval)}}
+  end
 
+  @spec receive_jobs_from_splunk(state :: map()) :: {:ok, Tesla.Env.t()}
+  defp receive_jobs_from_splunk(%{name: name, splunk_client: {client, client_opts}}) do
+    metadata = %{name: name, jobs_count: 0}
+
+    :telemetry.span(
+      [:off_broadway_splunk, :receive_jobs],
+      metadata,
+      fn ->
+        case client.receive_status(name, client_opts) do
+          {:ok, %{status: 200, body: %{"entry" => jobs}}} = response ->
+            {response, %{metadata | jobs_count: length(jobs)}}
+
+          {:ok, _end} = response ->
+            {response, metadata}
+        end
+      end
+    )
+  end
+
+  @spec receive_messages_from_splunk(state :: map(), demand :: non_neg_integer()) ::
+          {messages :: list(), state :: map()}
   defp receive_messages_from_splunk(
-         %{name: name, sid: sid, splunk_client: {client, client_opts}} = state,
+         %{name: name, current_job: job, splunk_client: {client, client_opts}} = state,
          demand
        ) do
-    metadata = %{name: name, sid: sid, demand: demand}
+    metadata = %{name: name, sid: job.name, demand: demand}
     count = calculate_count(client_opts, demand, state.processed_events)
 
     client_opts =
@@ -283,7 +361,7 @@ defmodule OffBroadway.Splunk.Producer do
             [:off_broadway_splunk, :receive_messages],
             metadata,
             fn ->
-              messages = client.receive_messages(sid, demand, client_opts)
+              messages = client.receive_messages(job.name, demand, client_opts)
               {messages, Map.put(metadata, :received, length(messages))}
             end
           )
@@ -297,6 +375,50 @@ defmodule OffBroadway.Splunk.Producer do
     end
   end
 
+  @spec update_queue_from_response(response :: {:ok, Tesla.Env.t()}, state :: map()) ::
+          :queue.queue()
+  defp update_queue_from_response({:ok, %{status: 200, body: %{"entry" => jobs}}}, state) do
+    jobs =
+      Enum.map(jobs, &merge_non_nil_fields(Job.new(&1), Job.new(Map.get(&1, "content"))))
+      |> Enum.reject(& &1.is_zombie)
+      |> Enum.filter(& &1.is_done)
+      |> Enum.sort_by(& &1.published, {:asc, DateTime})
+      |> only_latest?(state.only_latest)
+
+    :queue.fold(
+      fn job, acc ->
+        with false <- job == state.current_job,
+             false <- :queue.member(job, acc),
+             false <- MapSet.member?(state.completed_jobs, job) do
+          :queue.in(job, acc)
+        else
+          true -> acc
+        end
+      end,
+      state.queue,
+      :queue.from_list(jobs)
+    )
+  end
+
+  defp update_queue_from_response({:ok, _response}, state), do: state.queue
+
+  @spec only_latest?(list :: list(), flag :: boolean()) :: list()
+  defp only_latest?(list, true), do: Enum.take(list, -1)
+  defp only_latest?(list, false), do: list
+
+  @spec merge_non_nil_fields(map_a :: map(), map_b :: map()) :: map()
+  defp merge_non_nil_fields(map_a, map_b) do
+    Map.merge(map_a, map_b, fn
+      _key, old_value, new_value when is_nil(new_value) -> old_value
+      _key, _old_value, new_value -> new_value
+    end)
+  end
+
+  @spec calculate_count(
+          client_opts :: map(),
+          demand :: non_neg_integer(),
+          processed_events :: non_neg_integer()
+        ) :: non_neg_integer()
   defp calculate_count(client_opts, demand, processed_events) do
     case client_opts[:max_events] do
       nil ->
@@ -311,9 +433,13 @@ defmodule OffBroadway.Splunk.Producer do
   defp calculate_offset(%{processed_requests: 0}), do: 0
   defp calculate_offset(%{processed_events: processed_events}), do: processed_events
 
-  @spec schedule_enqueue_job(interval :: non_neg_integer()) :: reference()
-  defp schedule_enqueue_job(interval),
-    do: Process.send_after(self(), :enqueue_job, interval)
+  @spec schedule_next_job(interval :: non_neg_integer()) :: reference()
+  defp schedule_next_job(interval),
+    do: Process.send_after(self(), :next_job, interval)
+
+  @spec schedule_receive_jobs(interval :: non_neg_integer()) :: reference()
+  defp schedule_receive_jobs(interval),
+    do: Process.send_after(self(), :receive_jobs, interval)
 
   @spec schedule_receive_messages(interval :: non_neg_integer()) :: reference()
   defp schedule_receive_messages(interval),
