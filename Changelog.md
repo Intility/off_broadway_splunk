@@ -8,6 +8,12 @@ Options
 
 - Add new option `only_latest` to only consume the most recent job for given report or alert.
 
+Refactored
+
+- Remove `OffBroadway.Splunk.Queue` GenServer process and keep the queue in the producer.
+  This makes the producer process fully self-contained and we no longer need to communicate with
+  another process to know what job we should produce messages for.
+
 ## 2.0.0 - Upgrade version
 
 _Released 2023-05-23_
