@@ -52,6 +52,18 @@ defmodule OffBroadway.Splunk.Producer do
         }
         ```
 
+    * `[:off_broadway_splunk, :process_job, :start]` - Dispatched before starting to process
+      messages for a job.
+
+      * measurement: `%{time: System.system_time}`
+      * metadata: `%{name: string, sid: string}`
+
+    * `[:off_broadway_splunk, :process_job, :stop]` - Dispatched after all messages have been
+      processed for a job.
+
+      * measurement: `%{time: System.system_time}`
+      * metadata: `%{name: string, sid: string, processed_events: integer, processed_requests: integer}`
+
     * `[:off_broadway_splunk, :receive_messages, :start]` - Dispatched before receiving
       messages from Splunk.
 
@@ -245,10 +257,27 @@ defmodule OffBroadway.Splunk.Producer do
   defp handle_next_job(
          %{current_job: current, completed_jobs: completed, receive_timer: nil} = state
        ) do
+    :telemetry.execute(
+      [:off_broadway_splunk, :process_job, :stop],
+      %{time: System.system_time()},
+      %{
+        name: state.name,
+        sid: current.name,
+        processed_events: :counters.get(state.processed_events, 1),
+        processed_requests: :counters.get(state.processed_requests, 1)
+      }
+    )
+
     case :queue.out(state.queue) do
       {{:value, job}, new_queue} ->
         :ok = :counters.put(state.processed_events, 1, 0)
         :ok = :counters.put(state.processed_requests, 1, 0)
+
+        :telemetry.execute(
+          [:off_broadway_splunk, :process_job, :start],
+          %{time: System.system_time()},
+          %{name: state.name, sid: job.name}
+        )
 
         {:noreply, [],
          %{
