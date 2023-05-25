@@ -257,16 +257,18 @@ defmodule OffBroadway.Splunk.Producer do
   defp handle_next_job(
          %{current_job: current, completed_jobs: completed, receive_timer: nil} = state
        ) do
-    :telemetry.execute(
-      [:off_broadway_splunk, :process_job, :stop],
-      %{time: System.system_time()},
-      %{
-        name: state.name,
-        sid: current.name,
-        processed_events: :counters.get(state.processed_events, 1),
-        processed_requests: :counters.get(state.processed_requests, 1)
-      }
-    )
+    unless is_nil(current) do
+      :telemetry.execute(
+        [:off_broadway_splunk, :process_job, :stop],
+        %{time: System.system_time()},
+        %{
+          name: state.name,
+          sid: current.name,
+          processed_events: :counters.get(state.processed_events, 1),
+          processed_requests: :counters.get(state.processed_requests, 1)
+        }
+      )
+    end
 
     case :queue.out(state.queue) do
       {{:value, job}, new_queue} ->
@@ -307,19 +309,12 @@ defmodule OffBroadway.Splunk.Producer do
            current_job: nil,
            refetch_timer: nil,
            receive_timer: nil,
-           receive_interval: interval,
            queue: {[], []}
          } = state
        ) do
     with response <- receive_jobs_from_splunk(state),
-         queue <- update_queue_from_response(response, state),
-         {{:value, job}, new_queue} <- :queue.out(queue) do
-      {:noreply, [],
-       %{state | current_job: job, queue: new_queue, receive_timer: schedule_receive_messages(0)}}
-    else
-      {:empty, new_queue} ->
-        {:noreply, [],
-         %{state | queue: new_queue, receive_timer: schedule_receive_messages(interval)}}
+         queue <- update_queue_from_response(response, state) do
+      {:noreply, [], %{state | queue: queue, receive_timer: schedule_receive_messages(0)}}
     end
   end
 
@@ -345,6 +340,17 @@ defmodule OffBroadway.Splunk.Producer do
       end
 
     {:noreply, messages, %{new_state | demand: new_demand, receive_timer: receive_timer}}
+  end
+
+  defp handle_receive_messages(%{current_job: nil, receive_timer: nil} = state) do
+    case :queue.peek(state.queue) do
+      {:value, _} ->
+        {:noreply, [], %{state | receive_timer: schedule_next_job(0)}}
+
+      :empty ->
+        {:noreply, [],
+         %{state | receive_timer: schedule_receive_messages(state.receive_interval)}}
+    end
   end
 
   defp handle_receive_messages(%{receive_timer: nil} = state) do
