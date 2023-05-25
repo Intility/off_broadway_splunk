@@ -114,12 +114,17 @@ defmodule OffBroadway.Splunk.Producer do
     client = opts[:splunk_client]
     {:ok, client_opts} = client.init(opts)
 
+    # Use a two-dimensional counter to keep track of counts.
+    # First index is count for current job, second is total.
+    processed_events_counter = :counters.new(2, [:atomics])
+    processed_requests_counter = :counters.new(2, [:atomics])
+
     {:producer,
      %{
        demand: 0,
        drain: false,
-       processed_events: 0,
-       processed_requests: 0,
+       processed_events: processed_events_counter,
+       processed_requests: processed_requests_counter,
        receive_timer: nil,
        receive_interval: opts[:receive_interval],
        refetch_timer: nil,
@@ -242,13 +247,14 @@ defmodule OffBroadway.Splunk.Producer do
        ) do
     case :queue.out(state.queue) do
       {{:value, job}, new_queue} ->
+        :ok = :counters.put(state.processed_events, 1, 0)
+        :ok = :counters.put(state.processed_requests, 1, 0)
+
         {:noreply, [],
          %{
            state
            | current_job: job,
              queue: new_queue,
-             processed_events: 0,
-             processed_requests: 0,
              completed_jobs: MapSet.put(completed, current),
              receive_timer: schedule_receive_messages(0)
          }}
@@ -300,12 +306,13 @@ defmodule OffBroadway.Splunk.Producer do
     {messages, new_state} = receive_messages_from_splunk(state, demand)
     new_demand = demand - length(messages)
     max_events = client_opts[:max_events]
+    total_events = :counters.get(state.processed_events, 2)
 
     receive_timer =
-      case {messages, new_state} do
-        {[], %{receive_interval: interval}} -> schedule_next_job(interval)
-        {_, %{processed_events: ^max_events}} -> schedule_shutdown()
-        _ -> schedule_receive_messages(0)
+      case {total_events, messages, new_state} do
+        {^max_events, _messages, _state} -> schedule_shutdown()
+        {_total_events, [], %{receive_interval: interval}} -> schedule_next_job(interval)
+        {_total_events, _messages, _state} -> schedule_receive_messages(0)
       end
 
     {:noreply, messages, %{new_state | demand: new_demand, receive_timer: receive_timer}}
@@ -341,14 +348,14 @@ defmodule OffBroadway.Splunk.Producer do
          demand
        ) do
     metadata = %{name: name, sid: job.name, demand: demand}
-    count = calculate_count(client_opts, demand, state.processed_events)
+    count = calculate_count(client_opts, demand, :counters.get(state.processed_events, 1))
 
     client_opts =
       Keyword.put(client_opts, :ack_ref, state.broadway)
       |> Keyword.put(:query,
         output_mode: "json",
         count: count,
-        offset: calculate_offset(state)
+        offset: :counters.get(state.processed_events, 1)
       )
 
     case count do
@@ -361,17 +368,18 @@ defmodule OffBroadway.Splunk.Producer do
             [:off_broadway_splunk, :receive_messages],
             metadata,
             fn ->
-              messages = client.receive_messages(job.name, demand, client_opts)
-              {messages, Map.put(metadata, :received, length(messages))}
+              with messages <- client.receive_messages(job.name, demand, client_opts),
+                   count <- length(messages),
+                   :ok <- :counters.add(state.processed_events, 1, count),
+                   :ok <- :counters.add(state.processed_events, 2, count),
+                   :ok <- :counters.add(state.processed_requests, 1, 1),
+                   :ok <- :counters.add(state.processed_requests, 2, 1) do
+                {messages, Map.put(metadata, :received, count)}
+              end
             end
           )
 
-        {messages,
-         %{
-           state
-           | processed_requests: state.processed_requests + 1,
-             processed_events: state.processed_events + length(messages)
-         }}
+        {messages, state}
     end
   end
 
@@ -429,9 +437,6 @@ defmodule OffBroadway.Splunk.Producer do
         min(demand - (demand - capacity), demand)
     end
   end
-
-  defp calculate_offset(%{processed_requests: 0}), do: 0
-  defp calculate_offset(%{processed_events: processed_events}), do: processed_events
 
   @spec schedule_next_job(interval :: non_neg_integer()) :: reference()
   defp schedule_next_job(interval),
