@@ -30,6 +30,13 @@ defmodule OffBroadway.Splunk.Options do
         """,
         default: 60_000
       ],
+      only_new: [
+        doc: """
+        If set to `true`, the pipeline will skip adding any existing jobs to the initial queue.
+        """,
+        type: :boolean,
+        default: false
+      ],
       only_latest: [
         doc: """
         If set to `true`, the pipeline will only add the most recent job to the initial queue.

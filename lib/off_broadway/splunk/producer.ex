@@ -30,13 +30,13 @@ defmodule OffBroadway.Splunk.Producer do
       from Splunk.
 
       * measurement: `%{time: System.monotonic_time}`
-      * metadata: `%{name: string, jobs_count: integer}`
+      * metadata: `%{name: string, count: integer}`
 
     * `[:off_broadway_splunk, :receive_jobs, :stop]` - Dispatched when fetching jobs from Splunk
       is complete.
 
       * measurement: `%{time: native_time}`
-      * metadata: `%{name: string, jobs_count: integer}`
+      * metadata: `%{name: string, count: integer}`
 
     * `[:off_broadway_splunk, :receive_jobs, :exception]` - Dispatched after a failure while fetching
       jobs from Splunk.
@@ -61,8 +61,8 @@ defmodule OffBroadway.Splunk.Producer do
     * `[:off_broadway_splunk, :process_job, :stop]` - Dispatched after all messages have been
       processed for a job.
 
-      * measurement: `%{time: System.system_time}`
-      * metadata: `%{name: string, sid: string, processed_events: integer, processed_requests: integer}`
+      * measurement: `%{time: System.system_time, processed_events: integer, processed_requests: integer}`
+      * metadata: `%{name: string, sid: string}`
 
     * `[:off_broadway_splunk, :receive_messages, :start]` - Dispatched before receiving
       messages from Splunk.
@@ -147,6 +147,7 @@ defmodule OffBroadway.Splunk.Producer do
        queue: :queue.new(),
        splunk_client: {client, client_opts},
        broadway: opts[:broadway][:name],
+       only_new: opts[:only_new],
        only_latest: opts[:only_latest],
        shutdown_timeout: opts[:shutdown_timeout]
      }}
@@ -234,21 +235,20 @@ defmodule OffBroadway.Splunk.Producer do
 
   @spec handle_receive_jobs(state :: map()) :: {:noreply, [], new_state :: map()}
   defp handle_receive_jobs(%{refetch_timer: nil} = state) do
-    new_queue =
+    new_state =
       receive_jobs_from_splunk(state)
       |> update_queue_from_response(state)
 
-    case {new_queue, state} do
-      {{[], []}, %{current_job: nil}} ->
+    case new_state do
+      %{current_job: nil, queue: {[], []}} ->
         {:noreply, [],
-         %{state | queue: new_queue, refetch_timer: schedule_receive_jobs(state.refetch_interval)}}
+         %{new_state | refetch_timer: schedule_receive_jobs(state.refetch_interval)}}
 
-      {_queue, %{current_job: nil}} ->
+      %{current_job: nil, queue: _queue} ->
         {:noreply, [],
          %{
-           state
-           | queue: new_queue,
-             receive_timer: schedule_next_job(0),
+           new_state
+           | receive_timer: schedule_next_job(0),
              refetch_timer: schedule_receive_jobs(state.refetch_interval)
          }}
     end
@@ -260,13 +260,12 @@ defmodule OffBroadway.Splunk.Producer do
     unless is_nil(current) do
       :telemetry.execute(
         [:off_broadway_splunk, :process_job, :stop],
-        %{time: System.system_time()},
         %{
-          name: state.name,
-          sid: current.name,
+          time: System.system_time(),
           processed_events: :counters.get(state.processed_events, 1),
           processed_requests: :counters.get(state.processed_requests, 1)
-        }
+        },
+        %{name: state.name, sid: current.name}
       )
     end
 
@@ -313,8 +312,8 @@ defmodule OffBroadway.Splunk.Producer do
          } = state
        ) do
     with response <- receive_jobs_from_splunk(state),
-         queue <- update_queue_from_response(response, state) do
-      {:noreply, [], %{state | queue: queue, receive_timer: schedule_receive_messages(0)}}
+         new_state <- update_queue_from_response(response, state) do
+      {:noreply, [], %{new_state | receive_timer: schedule_receive_messages(0)}}
     end
   end
 
@@ -359,7 +358,7 @@ defmodule OffBroadway.Splunk.Producer do
 
   @spec receive_jobs_from_splunk(state :: map()) :: {:ok, Tesla.Env.t()}
   defp receive_jobs_from_splunk(%{name: name, splunk_client: {client, client_opts}}) do
-    metadata = %{name: name, jobs_count: 0}
+    metadata = %{name: name, count: 0}
 
     :telemetry.span(
       [:off_broadway_splunk, :receive_jobs],
@@ -367,7 +366,7 @@ defmodule OffBroadway.Splunk.Producer do
       fn ->
         case client.receive_status(name, client_opts) do
           {:ok, %{status: 200, body: %{"entry" => jobs}}} = response ->
-            {response, %{metadata | jobs_count: length(jobs)}}
+            {response, %{metadata | count: length(jobs)}}
 
           {:ok, _end} = response ->
             {response, metadata}
@@ -419,31 +418,45 @@ defmodule OffBroadway.Splunk.Producer do
   end
 
   @spec update_queue_from_response(response :: {:ok, Tesla.Env.t()}, state :: map()) ::
-          :queue.queue()
+          new_state :: map()
   defp update_queue_from_response({:ok, %{status: 200, body: %{"entry" => jobs}}}, state) do
     jobs =
       Enum.map(jobs, &merge_non_nil_fields(Job.new(&1), Job.new(Map.get(&1, "content"))))
       |> Enum.reject(& &1.is_zombie)
       |> Enum.filter(& &1.is_done)
       |> Enum.sort_by(& &1.published, {:asc, DateTime})
-      |> only_latest?(state.only_latest)
 
-    :queue.fold(
-      fn job, acc ->
-        with false <- job == state.current_job,
-             false <- :queue.member(job, acc),
-             false <- MapSet.member?(state.completed_jobs, job) do
-          :queue.in(job, acc)
-        else
-          true -> acc
-        end
-      end,
-      state.queue,
-      :queue.from_list(jobs)
-    )
+    # This flag can only be true *once*, on the first fetch.
+    # If set, add all current jobs to "completed jobs", and set the flag false
+    # so it will never trigger again.
+    completed_jobs =
+      if state.only_new do
+        Enum.reduce(jobs, state.completed_jobs, fn job, acc ->
+          MapSet.put(acc, job)
+        end)
+      else
+        state.completed_jobs
+      end
+
+    new_queue =
+      :queue.fold(
+        fn job, acc ->
+          with false <- job == state.current_job,
+               false <- :queue.member(job, acc),
+               false <- MapSet.member?(completed_jobs, job) do
+            :queue.in(job, acc)
+          else
+            true -> acc
+          end
+        end,
+        state.queue,
+        :queue.from_list(only_latest?(jobs, state.only_latest))
+      )
+
+    %{state | queue: new_queue, completed_jobs: completed_jobs, only_new: false}
   end
 
-  defp update_queue_from_response({:ok, _response}, state), do: state.queue
+  defp update_queue_from_response({:ok, _response}, state), do: state
 
   @spec only_latest?(list :: list(), flag :: boolean()) :: list()
   defp only_latest?(list, true), do: Enum.take(list, -1)

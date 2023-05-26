@@ -1,18 +1,22 @@
 # Changelog
 
-## 2.0.1 - Minor fixes
+## 2.1.0 - Minor upgrade
 
 _Unreleased_
 
 Options
 
+- Add new option `only_new` to skip consuming any existing jobs. The pipeline will ignore currently known
+  jobs, and only consume new jobs that arrives after the pipeline has started.
 - Add new option `only_latest` to only consume the most recent job for given report or alert.
 
-Refactored
+Other
 
 - Remove `OffBroadway.Splunk.Queue` GenServer process and keep the queue in the producer.
   This makes the producer process fully self-contained and we no longer need to communicate with
   another process to know what job we should produce messages for.
+- New telemetry events `[:off_broadway_splunk, :process_job, :start]` and `[:off_broadway_splunk, :process_job, :stop]`
+  are generated whenever a new job is started.
 
 ## 2.0.0 - Upgrade version
 
