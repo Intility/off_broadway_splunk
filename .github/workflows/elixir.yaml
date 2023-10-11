@@ -22,9 +22,6 @@ jobs:
       matrix:
         otp: ["24.3", "25.1", "26.1"]
         elixir: ["1.14.5", "1.15.6"]
-        include:
-          lint: lint
-          coverage: coverage
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -50,23 +47,15 @@ jobs:
 
       - name: Run the formatter
         run: mix format --check-formatted
-        if: ${{ matrix.lint }}
 
       - name: Check for unused dependencies
         run: mix deps.unlock --check-unused
-        if: ${{ matrix.lint }}
 
       - name: Compile Mix dependencies
         run: mix deps.compile
 
       - name: Compile code and check for warnings
         run: mix compile --warnings-as-errors
-        if: ${{ matrix.lint }}
-
-      - name: Run test suite
-        run: mix test
-        if: ${{ !matrix.coverage }}
 
       - name: Run test suite with coverage
         run: mix coveralls.github
-        if: ${{ matrix.coverage }}
