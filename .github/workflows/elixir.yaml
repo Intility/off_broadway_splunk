@@ -20,8 +20,13 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        otp: ["24.3", "25.1"]
-        elixir: ["1.13.4", "1.14.1"]
+        include:
+          - pair:
+              elixir: "1.15.6"
+              otp: ["24.3", "25.1", "26.1"]
+          - pair:
+              elixir: "1.14.5"
+              otp: ["24.3", "25.1"]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
