@@ -20,7 +20,6 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        include:
         otp: ["24.3", "25.1", "26.1"]
         elixir: ["1.14.5", "1.15.6"]
     steps:
