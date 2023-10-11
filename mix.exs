@@ -30,7 +30,7 @@ defmodule OffBroadway.Splunk.MixProject do
         ]
       ],
       test_coverage: [
-        [tool: ExCoveralls],
+        tool: ExCoveralls,
         summary: [threshold: 80]
       ]
     ]
