@@ -22,8 +22,9 @@ jobs:
       matrix:
         otp: ["24.3", "25.1", "26.1"]
         elixir: ["1.14.5", "1.15.6"]
-        lint: lint
-        coverage: coverage
+        include:
+          lint: lint
+          coverage: coverage
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
