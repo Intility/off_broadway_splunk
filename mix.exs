@@ -59,7 +59,6 @@ defmodule OffBroadway.Splunk.MixProject do
       {:exconstructor, "~> 1.2"},
       {:hackney, "~> 1.18", optional: true},
       {:jason, ">= 1.0.0"},
-      {:mix_test_watch, "~> 1.1", only: :dev},
       {:nimble_options, "~> 0.4 or ~> 0.5 or ~> 1.0"},
       {:telemetry, "~> 1.1 or ~> 1.2"},
       {:tesla, "~> 1.4 or ~> 1.5"}

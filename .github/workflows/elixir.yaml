@@ -22,6 +22,8 @@ jobs:
       matrix:
         otp: ["24.3", "25.1", "26.1"]
         elixir: ["1.14.5", "1.15.6"]
+        lint: lint
+        coverage: coverage
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -29,6 +31,7 @@ jobs:
         with:
           elixir-version: ${{matrix.elixir}}
           otp-version: ${{matrix.otp}}
+
       - name: Restore dependencies cache
         uses: actions/cache@v3
         id: dependency-cache
@@ -36,20 +39,33 @@ jobs:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
+
       - name: Install dependencies
         if: steps.dependency-cache.outputs.cache-hit != 'true'
         run: |
           mix local.rebar --force
           mix local.hex --force
           mix deps.get
-      - name: Lint
-        run: |
-          mix format --check-formatted
-          mix deps.unlock --check-unused
-          mix deps.get
-          mix compile --warnings-as-errors
+
+      - name: Run the formatter
+        run: mix format --check-formatted
+        if: ${{ matrix.lint }}
+
+      - name: Check for unused dependencies
+        run: mix deps.unlock --check-unused
+        if: ${{ matrix.lint }}
+
+      - name: Compile Mix dependencies
+        run: mix deps.compile
+
+      - name: Compile code and check for warnings
+        run: mix compile --warnings-as-errors
+        if: ${{ matrix.lint }}
 
       - name: Run test suite
-        run: |
-          mix test
-          # mix coveralls.github
+        run: mix test
+        if: ${{ !matrix.coverage }}
+
+      - name: Run test suite with coverage
+        run: mix coveralls.github
+        if: ${{ matrix.coverage }}
