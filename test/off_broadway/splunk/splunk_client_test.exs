@@ -9,6 +9,7 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
 
   @sid1 "8CB53D79-587A-43EE-95CC-14256C65EF95"
   @sid2 "non-existing"
+  @sid3 "server-error"
 
   @message1 %{
     "_bkt" => "my-index~8CB53D79-587A-43EE-95CC-14256C65EF95",
@@ -53,6 +54,9 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
           status: 404,
           body: %{"messages" => [%{"type" => "FATAL", "text" => "Unknown sid."}]}
         }
+
+      %{method: :get, url: "https://splunk.example.com/services/search/v2/jobs/#{@sid3}/results"} ->
+        {:error, :timeout}
     end)
   end
 
@@ -101,6 +105,12 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
                assert [] == SplunkClient.receive_messages(@sid2, 10, opts)
              end) =~ """
              [debug] [{"level", "FATAL"}, {"reason", "Unknown sid."}, {"source", "splunk"}]
+             """
+
+      assert capture_log(fn ->
+               assert [] == SplunkClient.receive_messages(@sid3, 10, opts)
+             end) =~ """
+             [error] Unable to fetch events from Splunk SID \"#{@sid3}\". Request failed with reason: :timeout.
              """
     end
   end

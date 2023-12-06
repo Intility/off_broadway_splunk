@@ -127,6 +127,15 @@ defmodule OffBroadway.Splunk.SplunkClient do
     []
   end
 
+  defp wrap_received_messages({:error, reason}, sid, _ack_ref) do
+    Logger.error(
+      "Unable to fetch events from Splunk SID \"#{sid}\". " <>
+        "Request failed with reason: #{inspect(reason)}."
+    )
+
+    []
+  end
+
   defp build_acknowledger(message, sid, ack_ref) do
     receipt = %{id: build_splunk_message_id(message), sid: sid}
     {__MODULE__, ack_ref, %{receipt: receipt}}
