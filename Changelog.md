@@ -2,7 +2,7 @@
 
 ## 2.1.0 - Minor upgrade
 
-_Unreleased_
+_Released 2023-12-06_
 
 Options
 
@@ -17,12 +17,14 @@ Other
   another process to know what job we should produce messages for.
 - New telemetry events `[:off_broadway_splunk, :process_job, :start]` and `[:off_broadway_splunk, :process_job, :stop]`
   are generated whenever a new job is started.
+- Log error and return empty list of messages when receiving an `{:error, reason}` tuple while trying to fetch
+  messages from Splunk.
 
 ## 2.0.0 - Upgrade version
 
 _Released 2023-05-23_
 
-This almost a complete rewrite and is **uncompatible** with the `v1.x` branch.
+This almost a complete rewrite and is **incompatible** with the `v1.x` branch.
 Instead of targeting a specific `SID` to produce messages for, this release is focused around producing messages
 from Splunk Reports or (triggered) Alerts.
 This is a more efficient way to prepare data for export by Splunk, and produces more predictable messages both
