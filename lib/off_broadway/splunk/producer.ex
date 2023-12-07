@@ -311,9 +311,13 @@ defmodule OffBroadway.Splunk.Producer do
            queue: {[], []}
          } = state
        ) do
-    with response <- receive_jobs_from_splunk(state),
-         new_state <- update_queue_from_response(response, state) do
+    with {:ok, response} <- receive_jobs_from_splunk(state),
+         new_state <- update_queue_from_response({:ok, response}, state) do
       {:noreply, [], %{new_state | receive_timer: schedule_receive_messages(0)}}
+    else
+      {:error, _reason} ->
+        {:noreply, [],
+         %{state | receive_timer: schedule_receive_messages(state.receive_interval)}}
     end
   end
 
@@ -368,8 +372,11 @@ defmodule OffBroadway.Splunk.Producer do
           {:ok, %{status: 200, body: %{"entry" => jobs}}} = response ->
             {response, %{metadata | count: length(jobs)}}
 
-          {:ok, _end} = response ->
+          {:ok, %{status: _status}} = response ->
             {response, metadata}
+
+          {:error, reason} ->
+            {{:error, reason}, metadata}
         end
       end
     )
@@ -417,7 +424,10 @@ defmodule OffBroadway.Splunk.Producer do
     end
   end
 
-  @spec update_queue_from_response(response :: {:ok, Tesla.Env.t()}, state :: map()) ::
+  @spec update_queue_from_response(
+          response :: {:ok, Tesla.Env.t()} | {:error, any()},
+          state :: map()
+        ) ::
           new_state :: map()
   defp update_queue_from_response({:ok, %{status: 200, body: %{"entry" => jobs}}}, state) do
     jobs =
@@ -457,6 +467,7 @@ defmodule OffBroadway.Splunk.Producer do
   end
 
   defp update_queue_from_response({:ok, _response}, state), do: state
+  defp update_queue_from_response({:error, _reason}, state), do: state
 
   @spec only_latest?(list :: list(), flag :: boolean()) :: list()
   defp only_latest?(list, true), do: Enum.take(list, -1)

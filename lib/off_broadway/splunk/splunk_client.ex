@@ -51,8 +51,19 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   @impl true
   def receive_status(name, opts) do
-    client(opts)
-    |> Tesla.get("/services/saved/searches/#{name}/history", query: [output_mode: "json"])
+    case client(opts)
+         |> Tesla.get("/services/saved/searches/#{name}/history", query: [output_mode: "json"]) do
+      {:ok, response} ->
+        {:ok, response}
+
+      {:error, reason} ->
+        Logger.error(
+          "Unable to fetch status for \"#{name}\". " <>
+            "Request failed with reason: #{inspect(reason)}."
+        )
+
+        {:error, reason}
+    end
   end
 
   @impl true

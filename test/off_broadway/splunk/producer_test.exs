@@ -4,9 +4,9 @@ defmodule OffBroadway.Splunk.ProducerTest do
   and adapted to the Splunk producer case.
   """
   use ExUnit.Case, async: false
+  import ExUnit.CaptureLog
 
   alias Broadway.Message
-  import ExUnit.CaptureLog
 
   defmodule MessageServer do
     def start_link, do: Agent.start_link(fn -> [] end)
@@ -73,6 +73,25 @@ defmodule OffBroadway.Splunk.ProducerTest do
       [%Message{acknowledger: {_, _, %{test_pid: test_pid}}} | _] = successful
       send(test_pid, {:messages_acknowledged, length(successful)})
     end
+  end
+
+  defmodule ErrorSplunkClient do
+    @behaviour OffBroadway.Splunk.Client
+
+    @impl true
+    def init(opts) do
+      client_opts =
+        Keyword.take(opts, [:message_server, :test_pid])
+        |> Keyword.merge(opts[:config])
+
+      {:ok, client_opts}
+    end
+
+    @impl true
+    def receive_status(_sid, _opts), do: {:error, :timeout}
+
+    @impl true
+    def receive_messages(_sid, _demand, _opts), do: {:error, :timeout}
   end
 
   defmodule Forwarder do
@@ -340,25 +359,36 @@ defmodule OffBroadway.Splunk.ProducerTest do
 
       MessageServer.push_messages(message_server, [13])
       assert_receive {:messages_received, 1}
-      assert_receive {:messages_acknowledged, 1}
       assert_receive {:message_handled, 13, _}
 
       assert_receive {:messages_received, 0}
       refute_receive {:message_handled, _, _}
 
-      # FIXME Fails
-      # MessageServer.push_messages(message_server, [14, 15])
-      # assert_receive {:messages_received, 2}
-      # assert_receive {:message_handled, 14, _}
-      # assert_receive {:message_handled, 15, _}
+      MessageServer.push_messages(message_server, [14, 15])
+      assert_receive {:messages_received, 2}
+      assert_receive {:message_handled, 14, _}
+      assert_receive {:message_handled, 15, _}
+
+      stop_broadway(pid)
+    end
+
+    test "keep trying to receive new messages after endpoint error" do
+      broadway_name = new_unique_name()
+      {:ok, message_server} = MessageServer.start_link()
+
+      {:ok, pid} =
+        start_broadway(message_server, broadway_name, splunk_client: ErrorSplunkClient)
+
+      MessageServer.push_messages(message_server, [10])
+      refute_receive {:messages_received, _}, 100
 
       stop_broadway(pid)
     end
 
     test "stop trying to receive new messages after start draining" do
-      {:ok, message_server} = MessageServer.start_link()
       broadway_name = new_unique_name()
-      {:ok, pid} = start_broadway(broadway_name, message_server, receive_interval: 5_000)
+      {:ok, message_server} = MessageServer.start_link()
+      {:ok, pid} = start_broadway(message_server, broadway_name, receive_interval: 5_000)
 
       [producer] = Broadway.producer_names(broadway_name)
       assert_receive {:messages_received, 0}
@@ -376,6 +406,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
       {:ok, pid} = start_broadway(message_server)
 
       MessageServer.push_messages(message_server, 1..20)
+      assert_receive {:messages_acknowledged, 10}
       assert_receive {:messages_acknowledged, 10}
 
       stop_broadway(pid)
@@ -397,8 +428,6 @@ defmodule OffBroadway.Splunk.ProducerTest do
             nil
           )
       end)
-
-      MessageServer.push_messages(message_server, [2])
 
       assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :start],
                       %{system_time: _}, %{sid: _, demand: 10}}
@@ -430,11 +459,13 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
   end
 
-  defp start_broadway(broadway_name \\ new_unique_name(), message_server, opts \\ []) do
+  defp start_broadway(message_server, broadway_name \\ new_unique_name(), opts \\ []) do
+    {client, opts} = Keyword.pop(opts, :splunk_client)
+
     Broadway.start_link(
       Forwarder,
       build_broadway_opts(broadway_name, opts,
-        splunk_client: FakeSplunkClient,
+        splunk_client: client || FakeSplunkClient,
         name: "My fine report",
         config: [
           base_url: "https://api.splunk.example.com",
