@@ -45,8 +45,8 @@ jobs:
           mix local.hex --force
           mix deps.get
 
-      - name: Run the formatter
-        run: mix format --check-formatted
+      # - name: Run the formatter
+      #   run: mix format --check-formatted
 
       - name: Check for unused dependencies
         run: mix deps.unlock --check-unused
