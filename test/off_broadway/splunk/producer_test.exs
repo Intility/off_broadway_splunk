@@ -354,24 +354,24 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     # FIXME This test fails, and I cannot understand why.
-    # test "keep trying to receive new messages when the queue is empty" do
-    #   {:ok, message_server} = MessageServer.start_link()
-    #   {:ok, pid} = start_broadway(message_server)
+    test "keep trying to receive new messages when the queue is empty" do
+      {:ok, message_server} = MessageServer.start_link()
+      {:ok, pid} = start_broadway(message_server)
 
-    #   MessageServer.push_messages(message_server, [13])
-    #   assert_receive {:messages_received, 1}
-    #   assert_receive {:message_handled, 13, _}
+      MessageServer.push_messages(message_server, [13])
+      assert_receive {:messages_received, 1}
+      assert_receive {:message_handled, 13, _}
 
-    #   assert_receive {:messages_received, 0}
-    #   refute_receive {:message_handled, _, _}
+      assert_receive {:messages_received, 0}
+      refute_receive {:message_handled, _, _}
 
-    #   MessageServer.push_messages(message_server, [14, 15])
-    #   assert_receive {:messages_received, 2}
-    #   assert_receive {:message_handled, 14, _}
-    #   assert_receive {:message_handled, 15, _}
+      MessageServer.push_messages(message_server, [14, 15])
+      assert_receive {:messages_received, 2}
+      assert_receive {:message_handled, 14, _}
+      assert_receive {:message_handled, 15, _}
 
-    #   stop_broadway(pid)
-    # end
+      stop_broadway(pid)
+    end
 
     test "keep trying to receive new messages after endpoint error" do
       broadway_name = new_unique_name()
@@ -414,53 +414,53 @@ defmodule OffBroadway.Splunk.ProducerTest do
     end
 
     # FIXME These tests are randomly failing, and I cannot understand why.
-    #   test "emit a telemetry start event with demand" do
-    #     self = self()
-    #     {:ok, message_server} = MessageServer.start_link()
-    #     {:ok, pid} = start_broadway(message_server)
+    test "emit a telemetry start event with demand" do
+      self = self()
+      {:ok, message_server} = MessageServer.start_link()
+      {:ok, pid} = start_broadway(message_server)
 
-    #     capture_log(fn ->
-    #       :ok =
-    #         :telemetry.attach(
-    #           "start_test",
-    #           [:off_broadway_splunk, :receive_messages, :start],
-    #           fn name, measurements, metadata, _ ->
-    #             send(self, {:telemetry_event, name, measurements, metadata})
-    #           end,
-    #           nil
-    #         )
-    #     end)
+      capture_log(fn ->
+        :ok =
+          :telemetry.attach(
+            "start_test",
+            [:off_broadway_splunk, :receive_messages, :start],
+            fn name, measurements, metadata, _ ->
+              send(self, {:telemetry_event, name, measurements, metadata})
+            end,
+            nil
+          )
+      end)
 
-    #     MessageServer.push_messages(message_server, [2])
+      MessageServer.push_messages(message_server, [2])
 
-    #     assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :start],
-    #                     %{system_time: _}, %{sid: _, demand: 10}}
+      assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :start],
+                      %{system_time: _}, %{sid: _, demand: 10}}
 
-    #     stop_broadway(pid)
-    #   end
+      stop_broadway(pid)
+    end
 
-    #   test "emit a telemetry stop event with received count" do
-    #     self = self()
-    #     {:ok, message_server} = MessageServer.start_link()
-    #     {:ok, pid} = start_broadway(message_server)
+    test "emit a telemetry stop event with received count" do
+      self = self()
+      {:ok, message_server} = MessageServer.start_link()
+      {:ok, pid} = start_broadway(message_server)
 
-    #     capture_log(fn ->
-    #       :ok =
-    #         :telemetry.attach(
-    #           "stop_test",
-    #           [:off_broadway_splunk, :receive_messages, :stop],
-    #           fn name, measurements, metadata, _ ->
-    #             send(self, {:telemetry_event, name, measurements, metadata})
-    #           end,
-    #           nil
-    #         )
-    #     end)
+      capture_log(fn ->
+        :ok =
+          :telemetry.attach(
+            "stop_test",
+            [:off_broadway_splunk, :receive_messages, :stop],
+            fn name, measurements, metadata, _ ->
+              send(self, {:telemetry_event, name, measurements, metadata})
+            end,
+            nil
+          )
+      end)
 
-    #     assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :stop],
-    #                     %{duration: _}, %{sid: _, received: _, demand: 10}}
+      assert_receive {:telemetry_event, [:off_broadway_splunk, :receive_messages, :stop],
+                      %{duration: _}, %{sid: _, received: _, demand: 10}}
 
-    #     stop_broadway(pid)
-    #   end
+      stop_broadway(pid)
+    end
   end
 
   defp start_broadway(message_server, broadway_name \\ new_unique_name(), opts \\ []) do
