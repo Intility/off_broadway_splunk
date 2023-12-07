@@ -1,6 +1,15 @@
 # Changelog
 
-## 2.1.0 - Minor upgrade
+## 2.1.1 - Patch release
+
+_Released 2023-12-07_
+
+Minor fixes
+
+- Make the producer accept `{:error, reason}` tuples as response from API client. Whenever this occurs,
+   simply reschedule a fetch after `receive_interval` milliseconds.
+
+## 2.1.0 - Minor release
 
 _Released 2023-12-06_
 
@@ -20,7 +29,7 @@ Other
 - Log error and return empty list of messages when receiving an `{:error, reason}` tuple while trying to fetch
   messages from Splunk.
 
-## 2.0.0 - Upgrade version
+## 2.0.0 - Major release
 
 _Released 2023-05-23_
 
@@ -49,7 +58,7 @@ Other
 - Refactored `OffBroadway.Splunk.Producer` and `OffBroadway.Splunk.SplunkClient` to new workflow.
 - Updated `telemetry` events to new workflow.
 
-## 1.2.4 - Bug fix
+## 1.2.4 - Patch release
 
 _Released 2023-04-20_
 
@@ -59,7 +68,7 @@ Bug fixes
   to be based on `receive_interval`.
 - Fixed typings for `OffBroadway.Splunk.Leader` struct.
 
-## 1.2.3 - Minor fixes
+## 1.2.3 - Patch release
 
 _Released 2023-04-05_
 
@@ -68,7 +77,7 @@ Minor fixes
 - Remove `Tesla.Middleware.Logger` from default `OffBroadway.Splunk.SplunkClient` tesla client because
   of too much noise.
 
-## 1.2.2 - Minor fixes
+## 1.2.2 - Patch release
 
 _Released 2023-04-03_
 
@@ -77,7 +86,7 @@ Minor fixes
 - Filter `authorization` headers for `Tesla.Middleware.Logger`
 - Replace some enumerations with streams
 
-## 1.2.1 - Dependecies
+## 1.2.1 - Patch release 
 
 _Released 2023-03-28_
 
@@ -85,7 +94,7 @@ Upgrade accepted dependencies
 
 - Accept `nimble_options` version `v1.0`
 
-## 1.2.0 - Feature release
+## 1.2.0 - Minor release
 
 _Released 2023-01-23_
 
@@ -98,7 +107,7 @@ Upgrade accepted dependencies
 - Accept `telemetry` version `1.1` or `1.2`
 - Accept `tesla` version `1.4` or `1.5`
 
-## 1.1.1 - Feature release
+## 1.1.1 - Minor release
 
 _Released 2023-01-16_
 
