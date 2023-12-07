@@ -1,7 +1,7 @@
 defmodule OffBroadway.Splunk.MixProject do
   use Mix.Project
 
-  @version "2.1.0"
+  @version "2.1.1"
   @description "Splunk producer for Broadway data processing pipelines"
   @source_url "https://github.com/Intility/off_broadway_splunk"
 
@@ -54,8 +54,8 @@ defmodule OffBroadway.Splunk.MixProject do
       {:broadway, "~> 1.0"},
       {:credo, "~> 1.7", only: :dev},
       {:decimal, "~> 2.0"},
-      {:excoveralls, "~> 0.15.0", only: :test},
-      {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18.0", only: :test},
+      {:ex_doc, "~> 0.30", only: [:dev, :test], runtime: false},
       {:exconstructor, "~> 1.2"},
       {:hackney, "~> 1.18", optional: true},
       {:jason, ">= 1.0.0"},
