@@ -2,6 +2,14 @@
 
 ## 2.1.1 - Patch release
 
+_Released 2023-12-28_
+
+Minor fixes 
+
+- Generate unique message IDs using the `_bkt` and `_cd` metadata fields.
+
+## 2.1.1 - Patch release
+
 _Released 2023-12-07_
 
 Minor fixes

@@ -160,8 +160,7 @@ defmodule OffBroadway.Splunk.SplunkClient do
 
   defp extract_message_receipt(%{acknowledger: {_, _, %{receipt: receipt}}}), do: receipt
 
-  defp build_splunk_message_id(%{"_si" => si, "_cd" => cd}) when is_list(si),
-    do: "#{Enum.join(si, ";")};#{cd}"
+  defp build_splunk_message_id(%{"_bkt" => bkt, "_cd" => cd}), do: "#{bkt};#{cd}"
 
   defp build_splunk_message_id(_), do: nil
 

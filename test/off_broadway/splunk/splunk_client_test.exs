@@ -95,7 +95,12 @@ defmodule OffBroadway.Splunk.SplunkClientTest do
 
       assert message1.acknowledger ==
                {SplunkClient, nil,
-                %{receipt: %{id: "splunk.example.com;my-index;329:7062435", sid: @sid1}}}
+                %{
+                  receipt: %{
+                    id: "my-index~8CB53D79-587A-43EE-95CC-14256C65EF95;329:7062435",
+                    sid: @sid1
+                  }
+                }}
     end
 
     test "if the request fails, returns an empty list and log the error", %{base_opts: base_opts} do
