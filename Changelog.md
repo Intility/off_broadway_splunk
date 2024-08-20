@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.2 - Patch release
+
+_Released 2024-08-20_
+
+- Replace `:only_new` and `:only_latest` options with a `:jobs` option. Set `:jobs` to `:new` to only process new jobs, and `:latest` 
+to only process the latest available job.
+- Add deprecation warnings to `:only_new` and `:only_latest` option. The options are still accepted but will be removed in the
+next major release.
+- If the client receives an `{:error, reason}` tuple, reschedule another fetch instead of blowing up.
+
 ## 2.1.1 - Patch release
 
 _Released 2023-12-28_

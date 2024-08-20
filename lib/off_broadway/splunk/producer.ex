@@ -142,13 +142,13 @@ defmodule OffBroadway.Splunk.Producer do
        refetch_timer: nil,
        refetch_interval: opts[:refetch_interval],
        name: opts[:name],
+       jobs: opts[:jobs],
        current_job: nil,
+       first_fetch: true,
        completed_jobs: MapSet.new(),
        queue: :queue.new(),
        splunk_client: {client, client_opts},
        broadway: opts[:broadway][:name],
-       only_new: opts[:only_new],
-       only_latest: opts[:only_latest],
        shutdown_timeout: opts[:shutdown_timeout]
      }}
   end
@@ -156,6 +156,7 @@ defmodule OffBroadway.Splunk.Producer do
   @impl true
   def prepare_for_start(_module, broadway_opts) do
     {producer_module, client_opts} = broadway_opts[:producer][:module]
+    client_opts = preprocess_options(client_opts)
 
     case NimbleOptions.validate(client_opts, OffBroadway.Splunk.Options.definition()) do
       {:error, error} ->
@@ -175,6 +176,15 @@ defmodule OffBroadway.Splunk.Producer do
 
         {[], with_default_opts}
     end
+  end
+
+  # NOTE Remove next major release when :only_new and :only_latest are removed.
+  defp preprocess_options(opts) do
+    Enum.reduce(opts, [], fn
+      {:only_new, true}, acc -> Keyword.put_new(acc, :jobs, :new)
+      {:only_latest, true}, acc -> Keyword.put_new(acc, :jobs, :latest)
+      {key, value}, acc -> Keyword.put(acc, key, value)
+    end)
   end
 
   defp format_error(%ValidationError{keys_path: [], message: message}) do
@@ -436,11 +446,10 @@ defmodule OffBroadway.Splunk.Producer do
       |> Enum.filter(& &1.is_done)
       |> Enum.sort_by(& &1.published, {:asc, DateTime})
 
-    # This flag can only be true *once*, on the first fetch.
-    # If set, add all current jobs to "completed jobs", and set the flag false
-    # so it will never trigger again.
+    # If the `:jobs` option is set to `:new`, add all existing jobs to
+    # "completed jobs", and wait for new to arrive.
     completed_jobs =
-      if state.only_new do
+      if state.first_fetch && state.jobs == :new do
         Enum.reduce(jobs, state.completed_jobs, fn job, acc ->
           MapSet.put(acc, job)
         end)
@@ -460,18 +469,18 @@ defmodule OffBroadway.Splunk.Producer do
           end
         end,
         state.queue,
-        :queue.from_list(only_latest?(jobs, state.only_latest))
+        :queue.from_list(only_latest?(jobs, state.jobs))
       )
 
-    %{state | queue: new_queue, completed_jobs: completed_jobs, only_new: false}
+    %{state | queue: new_queue, completed_jobs: completed_jobs, first_fetch: false}
   end
 
   defp update_queue_from_response({:ok, _response}, state), do: state
   defp update_queue_from_response({:error, _reason}, state), do: state
 
-  @spec only_latest?(list :: list(), flag :: boolean()) :: list()
-  defp only_latest?(list, true), do: Enum.take(list, -1)
-  defp only_latest?(list, false), do: list
+  @spec only_latest?(list :: list(), flag :: atom()) :: list()
+  defp only_latest?(list, :latest), do: Enum.take(list, -1)
+  defp only_latest?(list, _), do: list
 
   @spec merge_non_nil_fields(map_a :: map(), map_b :: map()) :: map()
   defp merge_non_nil_fields(map_a, map_b) do

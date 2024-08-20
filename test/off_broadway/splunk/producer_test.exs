@@ -6,6 +6,7 @@ defmodule OffBroadway.Splunk.ProducerTest do
   use ExUnit.Case, async: false
   import ExUnit.CaptureLog
 
+  require Logger
   alias Broadway.Message
 
   defmodule MessageServer do
@@ -226,16 +227,41 @@ defmodule OffBroadway.Splunk.ProducerTest do
       assert result_module_opts[:config][:max_events] == 10
     end
 
-    test ":only_latest is default false" do
+    test "when :only_latest is true sets jobs: :latest" do
       assert {[],
               [
                 producer: [
                   module: {OffBroadway.Splunk.Producer, result_module_opts},
                   concurrency: 1
                 ]
-              ]} = prepare_for_start_module_opts(name: "My fine report")
+              ]} = prepare_for_start_module_opts(name: "My fine report", only_latest: true)
 
-      assert result_module_opts[:only_latest] == false
+      assert result_module_opts[:jobs] == :latest
+    end
+
+    test "when :only_new is true sets jobs: :new" do
+      assert {[],
+              [
+                producer: [
+                  module: {OffBroadway.Splunk.Producer, result_module_opts},
+                  concurrency: 1
+                ]
+              ]} = prepare_for_start_module_opts(name: "My fine report", only_new: true)
+
+      assert result_module_opts[:jobs] == :new
+    end
+
+    test "when :jobs is an invalid value" do
+      assert_raise(
+        ArgumentError,
+        ~r/invalid value for :jobs option: expected one of \[:all, :new, :latest\], got: :invalid/,
+        fn ->
+          prepare_for_start_module_opts(
+            name: "My fine report",
+            jobs: :invalid
+          )
+        end
+      )
     end
 
     test ":config is optional with default values" do
