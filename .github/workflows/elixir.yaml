@@ -17,7 +17,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: fail
+      fail-fast: false
       matrix:
         include:
           # Earliest-supported versions.
