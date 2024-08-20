@@ -15,6 +15,13 @@ defmodule OffBroadway.Splunk.Options do
         The report or alert name for the Splunk job we want to consume events from.
         """
       ],
+      jobs: [
+        default: :all,
+        type: {:in, [:all, :new, :latest]},
+        doc: """
+        Which jobs to add to the initial queue. Possible values are: `:all`, `:new`, `:latest`.
+        """
+      ],
       receive_interval: [
         type: :non_neg_integer,
         doc: """
@@ -35,14 +42,14 @@ defmodule OffBroadway.Splunk.Options do
         If set to `true`, the pipeline will skip adding any existing jobs to the initial queue.
         """,
         type: :boolean,
-        default: false
+        deprecated: "Use jobs: :new instead."
       ],
       only_latest: [
         doc: """
         If set to `true`, the pipeline will only add the most recent job to the initial queue.
         """,
         type: :boolean,
-        default: false
+        deprecated: "Use jobs: :latest instead."
       ],
       shutdown_timeout: [
         type: :timeout,
