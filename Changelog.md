@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.1.2 - Patch release
+## 2.1.3 - Patch release
 
 _Released 2024-08-20_
 
